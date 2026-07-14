@@ -1,0 +1,26 @@
+﻿# AI runtime for nnU-Net and moAR-Diff.
+# Build from the repository root:
+#   docker build -f docker/Dockerfile.smri-ai -t smri_pipeline_win:ai .
+
+FROM nvidia/cuda:12.1.1-base-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    MAMBA_ROOT_PREFIX=/opt/micromamba \
+    PATH=/opt/micromamba/envs/sMRI_pipeline_win/bin:/opt/micromamba/bin:$PATH \
+    PYTHONUNBUFFERED=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash bzip2 ca-certificates curl git libglib2.0-0 libgl1 libgomp1 \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
+    | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba
+
+COPY docker/environment-ai.yml /tmp/environment-ai.yml
+RUN micromamba create -y -f /tmp/environment-ai.yml \
+    && micromamba clean -a -y
+
+WORKDIR /pipeline
+CMD ["/bin/bash"]
+
+

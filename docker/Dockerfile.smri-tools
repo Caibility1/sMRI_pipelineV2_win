@@ -1,0 +1,33 @@
+﻿# CPU/Linux-tool runtime for FSL/ANTs/Workbench/FreeSurfer-facing jobs.
+# This Dockerfile intentionally does not redistribute FreeSurfer or FSL by default.
+# Mount an existing FreeSurfer/FSL install at runtime, or extend this image inside
+# your institution if your licenses allow redistribution.
+# Build from the repository root:
+#   docker build -f docker/Dockerfile.smri-tools -t smri_pipeline_win:tools .
+
+FROM nvidia/cuda:12.1.1-base-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    MAMBA_ROOT_PREFIX=/opt/micromamba \
+    PATH=/opt/micromamba/envs/sMRI_pipeline_win/bin:/opt/micromamba/bin:$PATH \
+    PYTHONUNBUFFERED=1 \
+    FSLOUTPUTTYPE=NIFTI_GZ
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    bash bzip2 ca-certificates curl git bc file findutils libgomp1 libglib2.0-0 libgl1 libpng16-16 \
+    perl procps rsync tcsh unzip zip \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN curl -Ls https://micro.mamba.pm/api/micromamba/linux-64/latest \
+    | tar -xvj -C /usr/local/bin --strip-components=1 bin/micromamba
+
+COPY docker/environment-tools.yml /tmp/environment-tools.yml
+RUN micromamba create -y -f /tmp/environment-tools.yml \
+    && micromamba clean -a -y
+
+WORKDIR /pipeline
+CMD ["/bin/bash"]
+
+
+
+

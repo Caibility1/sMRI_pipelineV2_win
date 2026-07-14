@@ -1,0 +1,20 @@
+﻿name: sMRI_pipeline_win
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - numpy<2
+  - scipy
+  - pandas
+  - openpyxl
+  - nibabel
+  - simpleitk
+  - scikit-image
+  - matplotlib
+  - tqdm
+  - pyyaml
+  - imageio
+  - ants
+  - parallel

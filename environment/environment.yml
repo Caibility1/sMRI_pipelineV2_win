@@ -1,0 +1,31 @@
+﻿name: sMRI_pipeline_win
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - numpy
+  - scipy
+  - pandas
+  - openpyxl
+  - nibabel
+  - simpleitk
+  - scikit-image
+  - scikit-learn
+  - matplotlib
+  - tqdm
+  - pyyaml
+  - imageio
+  - einops
+  - requests
+  - pytorch
+  - torchvision
+  - pip:
+      - batchgenerators>=0.23
+      - dicom2nifti
+      - medpy
+      - nnunet
+
+

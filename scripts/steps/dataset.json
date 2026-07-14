@@ -1,0 +1,34 @@
+{
+    "description": "",
+    "labels": {
+        "0": "background",
+        "1": "Brain"
+    },
+    "licence": "hands off!",
+    "modality": {
+        "0": "T1"
+    },
+    "name": "T523",
+    "numTest":16,
+    "numTraining": 0,
+    "reference": "",
+    "release": "0.0",
+    "tensorImageSize": "4D",
+    "test": [
+"./imagesTs/T523_010101026867mo_0000.nii.gz",
+"./imagesTs/T523_010103010461mo_0000.nii.gz",
+"./imagesTs/T523_N103503010105770mo_0000.nii.gz",
+"./imagesTs/T523_N104503020105000mo_0000.nii.gz",
+"./imagesTs/T523_N105903020105060mo_0000.nii.gz",
+"./imagesTs/T523_N106103010106010mo_0000.nii.gz",
+"./imagesTs/T523_N1074030102034873mo_0000.nii.gz",
+"./imagesTs/T523_N107503020105082mo_0000.nii.gz",
+"./imagesTs/T523_N1078030102043062mo_0000.nii.gz",
+"./imagesTs/T523_N108703020105100mo_0000.nii.gz",
+"./imagesTs/T523_N108803010106200mo_0000.nii.gz",
+"./imagesTs/T523_N109103010106190mo_0000.nii.gz",
+"./imagesTs/T523_N1094030102063567mo_0000.nii.gz",
+"./imagesTs/T523_N1096030102022059mo_0000.nii.gz",
+"./imagesTs/T523_N110903010106430mo_0000.nii.gz",
+"./imagesTs/T523_N1110030101064425mo_0000.nii.gz"  ]
+}

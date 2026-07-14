@@ -1,0 +1,27 @@
+#!/usr/bin/env fslpython
+"""NumPy 2 compatibility wrapper for FSL aff2rigid.
+
+FSL 6.0 aff2rigid still references numpy.mat, which was removed from
+NumPy 2. Keep this shim project-local so the system FSL install is untouched.
+"""
+
+import builtins
+import os
+import runpy
+import sys
+
+import numpy as np
+
+if not hasattr(np, "mat"):
+    np.mat = np.matrix
+builtins.mat = np.matrix
+
+original = os.environ.get("SMRI_FSL_AFF2RIGID_ORIGINAL")
+if not original:
+    fsldir = os.environ.get("FSLDIR")
+    if not fsldir:
+        raise SystemExit("FSLDIR is not set; cannot locate original aff2rigid")
+    original = os.path.join(fsldir, "bin", "aff2rigid")
+
+sys.argv[0] = original
+runpy.run_path(original, run_name="__main__")

@@ -1,0 +1,17 @@
+﻿.git
+__pycache__/
+*.pyc
+*.pyo
+*.tmp
+*.log
+logs/
+**/logs/
+**/wsl_commands/
+**/docker_commands/
+
+# Runtime resources are mounted into containers from the project directory.
+# They are intentionally excluded from Docker build context to avoid sending
+# multi-GB models/software to the daemon when the Dockerfiles do not COPY them.
+resources/models/
+resources/software/
+resources/templates/

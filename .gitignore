@@ -1,0 +1,30 @@
+﻿# Batch data and generated outputs belong outside the code repository.
+20[0-9][0-9]/
+*_TEST/
+
+# Large local resources are part of deployment, not ordinary source history.
+resources/models/
+resources/templates/
+
+# Runtime products.
+__pycache__/
+*.py[cod]
+*.out
+*.err
+*.log
+prediction_time.txt
+
+# Local office/cache artifacts.
+~$*
+# Local machine config, private spreadsheets, and notes.
+environment/*.local.ps1
+*.xlsx
+*.docx
+*.zip
+
+# Large/licensed software should be installed, mounted, released separately, or baked into private Docker images.
+resources/software/freesurfer/
+resources/software/fsl/
+resources/software/workbench-linux64-v2.0.0/
+resources/software/**/license.txt
+
