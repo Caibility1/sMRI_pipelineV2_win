@@ -32,6 +32,37 @@ class WindowsPathTests(unittest.TestCase):
 
 
 class CommandBuilderTests(unittest.TestCase):
+    def test_active_shell_entrypoints_do_not_have_utf8_bom(self):
+        for relative in (
+            "environment/wsl_env.sh",
+            "docker/container_env.sh",
+            "scripts/jobs/recon_all.sh",
+            "bin/smri_presurf_recon.sh",
+        ):
+            self.assertFalse((REPO / relative).read_bytes().startswith(b"\xef\xbb\xbf"), relative)
+
+    def test_active_freesurfer_setup_calls_disable_nounset(self):
+        for relative in (
+            "environment/wsl_env.sh",
+            "docker/container_env.sh",
+            "scripts/jobs/recon_all.sh",
+        ):
+            text = (REPO / relative).read_text(encoding="utf-8")
+            source_at = text.index("SetUpFreeSurfer.sh\"")
+            source_at = text.index("source ", source_at)
+            guard_at = text.rfind("set +u", 0, source_at)
+            self.assertGreater(
+                guard_at,
+                text.rfind("\nif ", 0, source_at),
+                f"{relative} must disable nounset immediately before sourcing FreeSurfer",
+            )
+
+    def test_recon_preserves_pipeline_python_before_freesurfer_setup(self):
+        text = (REPO / "scripts/jobs/recon_all.sh").read_text(encoding="utf-8")
+        resolve_at = text.index('PYTHON_BIN="$(command -v "$PYTHON_BIN")"')
+        source_at = text.index('source "${FREESURFER_HOME}/SetUpFreeSurfer.sh"')
+        self.assertLess(resolve_at, source_at)
+
     def test_python_step_command_uses_current_interpreter_and_script(self):
         mod = load_steps_module("smri_windows_utils.py")
         ctx = mod.PipelineContext(

@@ -1,4 +1,4 @@
-﻿#!/bin/bash
+#!/bin/bash
 #SBATCH -p bme_cpu
 #SBATCH -J smri_recon
 #SBATCH -N 1
@@ -16,6 +16,9 @@ SUMMARY_NAME="${4:-40_recon_summary.csv}"
 REPORT_PATH="${5:-}"
 LOG_DIR="${BASE_DIR}/logs"
 PYTHON_BIN="${PYTHON:-python}"
+if command -v "$PYTHON_BIN" >/dev/null 2>&1; then
+    PYTHON_BIN="$(command -v "$PYTHON_BIN")"
+fi
 RECON_JOBS="${SMRI_RECON_JOBS:-50}"
 
 mkdir -p "$LOG_DIR" "${BATCH_DIR}/manifests"
@@ -37,19 +40,42 @@ fi
 export FREESURFER_HOME="${FREESURFER_HOME:-/public_bme2/bme-zhanghan/linmo2025/Freesurfer8.1/FS8.1}"
 export FS_LICENSE="${FS_LICENSE:-/public_bme2/bme-zhanghan/linmo2025/Freesurfer8.1/license.txt}"
 if [ -f "${FREESURFER_HOME}/SetUpFreeSurfer.sh" ]; then
-    set +u
+    fs_nounset_was_enabled=0
+    case $- in
+        *u*)
+            fs_nounset_was_enabled=1
+            set +u
+            ;;
+    esac
     # shellcheck disable=SC1090
-    source "${FREESURFER_HOME}/SetUpFreeSurfer.sh"
-    fs_setup_rc=$?
-    set -u
+    if source "${FREESURFER_HOME}/SetUpFreeSurfer.sh"; then
+        fs_setup_rc=0
+    else
+        fs_setup_rc=$?
+    fi
+    if [ "$fs_nounset_was_enabled" -eq 1 ]; then
+        set -u
+    fi
     if [ "$fs_setup_rc" -ne 0 ]; then
         echo "FreeSurfer setup failed: ${FREESURFER_HOME}/SetUpFreeSurfer.sh" >&2
         exit "$fs_setup_rc"
     fi
+    unset fs_nounset_was_enabled fs_setup_rc
 else
     echo "Missing FreeSurfer setup script: ${FREESURFER_HOME}/SetUpFreeSurfer.sh" >&2
     exit 2
 fi
+if [ ! -f "$FS_LICENSE" ]; then
+    echo "Missing FreeSurfer license: $FS_LICENSE" >&2
+    exit 2
+fi
+if ! command -v infant_recon_all >/dev/null 2>&1; then
+    echo "infant_recon_all not found after sourcing FreeSurfer: $FREESURFER_HOME" >&2
+    exit 2
+fi
+echo "FREESURFER_HOME=$FREESURFER_HOME"
+echo "FS_LICENSE=$FS_LICENSE"
+echo "infant_recon_all=$(command -v infant_recon_all)"
 
 export SUBJECTS_DIR="$BASE_DIR"
 

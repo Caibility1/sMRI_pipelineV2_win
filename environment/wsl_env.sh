@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # sMRI Pipeline V2 WSL2 environment.
 # Source this file inside Ubuntu before running Linux-only jobs.
 
@@ -130,8 +130,26 @@ if [ -z "${FS_LICENSE:-}" ] && [ -f "$PIPELINE_DIR/resources/software/freesurfer
     export FS_LICENSE="$PIPELINE_DIR/resources/software/freesurfer/license.txt"
 fi
 if [ -n "${FREESURFER_HOME:-}" ] && [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]; then
+    smri_fs_nounset_was_enabled=0
+    case $- in
+        *u*)
+            smri_fs_nounset_was_enabled=1
+            set +u
+            ;;
+    esac
     # shellcheck disable=SC1090
-    source "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1 || true
+    if source "$FREESURFER_HOME/SetUpFreeSurfer.sh" >/dev/null 2>&1; then
+        smri_fs_setup_rc=0
+    else
+        smri_fs_setup_rc=$?
+    fi
+    if [ "$smri_fs_nounset_was_enabled" -eq 1 ]; then
+        set -u
+    fi
+    if [ "$smri_fs_setup_rc" -ne 0 ]; then
+        echo "WARN: FreeSurfer setup failed (rc=$smri_fs_setup_rc): $FREESURFER_HOME/SetUpFreeSurfer.sh" >&2
+    fi
+    unset smri_fs_nounset_was_enabled smri_fs_setup_rc
 fi
 
 # nnU-Net v1 resources.
