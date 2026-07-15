@@ -1,4 +1,6 @@
-﻿# New Machine Tutorial
+# New Machine Tutorial
+
+> Recommended path: use [Portable Docker deployment tutorial](portable_docker_tutorial.md). The manual WSL module steps below are retained as an advanced fallback.
 
 This tutorial is for a new Windows PC. It assumes Windows conda and WSL2 Ubuntu 22.04 may already be installed, but it still shows how to verify every piece.
 

@@ -150,6 +150,48 @@ class CommandBuilderTests(unittest.TestCase):
             self.assertIn("FS_LICENSE=/pipeline/resources/software/freesurfer/license.txt", command)
             self.assertNotIn(f"{license_path.resolve()}:/licenses/freesurfer/license.txt:ro", command)
 
+    def test_docker_bundled_resources_override_empty_host_resource_paths(self):
+        mod = load_steps_module("smri_windows_utils.py")
+        old_value = os.environ.get("SMRI_DOCKER_BUNDLED_RESOURCES")
+        os.environ["SMRI_DOCKER_BUNDLED_RESOURCES"] = "1"
+        try:
+            with tempfile.TemporaryDirectory() as temp:
+                root = Path(temp)
+                pipeline_dir = root / "pipeline"
+                batch_dir = root / "batch"
+                pipeline_dir.mkdir()
+                batch_dir.mkdir()
+                ctx = mod.PipelineContext(pipeline_dir=pipeline_dir, batch_dir=batch_dir)
+                command = mod.build_docker_bash_command(
+                    ctx,
+                    "smri_pipeline_win:ai-portable",
+                    "echo ok",
+                    nnunet_resource_dir=pipeline_dir / "resources" / "models" / "nnUNet",
+                    extra_env={
+                        "MOARDIFF_DIR": pipeline_dir / "resources" / "models" / "denoise_diffusion" / "CBCP_UnDPM_with_age_finetune",
+                        "MOARDIFF_CKPT": pipeline_dir / "resources" / "models" / "denoise_diffusion" / "CBCP_UnDPM_with_age_finetune" / "exp" / "logs" / "finetuneDPM_with_age" / "ckpt_100000.pth",
+                        "SMRI_TEMPLATE_DIR": pipeline_dir / "resources" / "templates" / "atlas",
+                        "FSLDIR": "/host/fsl",
+                        "FREESURFER_HOME": "/host/freesurfer",
+                    },
+                )
+                generated = sorted((batch_dir / "logs" / "docker_commands").glob("docker_*.sh"))
+                script = generated[0].read_text(encoding="utf-8")
+                self.assertIn("export SMRI_DOCKER_BUNDLED_RESOURCES=1", script)
+                self.assertIn("export NNUNET_RESOURCE_DIR=/opt/smri/models/nnUNet", script)
+                self.assertIn("export MOARDIFF_DIR=/opt/smri/models/denoise_diffusion/CBCP_UnDPM_with_age_finetune", script)
+                self.assertIn("export MOARDIFF_CKPT=/opt/smri/models/denoise_diffusion/CBCP_UnDPM_with_age_finetune/exp/logs/finetuneDPM_with_age/ckpt_100000.pth", script)
+                self.assertIn("export SMRI_TEMPLATE_DIR=/opt/smri/templates/UNC-BCP-4D-Infant-Brain-Volumetric-Atlas-Ver2/BCP-atlas-for_release-Ver2.0.0", script)
+                self.assertIn("export SMRI_WORKBENCH_BIN=/opt/smri/workbench/bin_linux64", script)
+                self.assertIn("export FSLDIR=/opt/fsl", script)
+                self.assertIn("export FREESURFER_HOME=/opt/freesurfer", script)
+                self.assertIn("SMRI_DOCKER_BUNDLED_RESOURCES=1", command)
+        finally:
+            if old_value is None:
+                os.environ.pop("SMRI_DOCKER_BUNDLED_RESOURCES", None)
+            else:
+                os.environ["SMRI_DOCKER_BUNDLED_RESOURCES"] = old_value
+
 
     def test_docker_bash_command_accepts_extra_mounts_from_environment(self):
         mod = load_steps_module("smri_windows_utils.py")

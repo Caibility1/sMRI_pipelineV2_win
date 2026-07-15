@@ -1,4 +1,6 @@
-﻿# Docker Deployment Guide
+# Docker Deployment Guide
+
+> Note: This page documents the earlier split-image and host-mount design. For new deployments, use [Portable Docker deployment tutorial](portable_docker_tutorial.md), which uses one all-in-one image.
 
 This guide is optional. Complete `docs/windows_deployment_guide.md` first unless your instructor or IT team already provides prepared Docker images.
 

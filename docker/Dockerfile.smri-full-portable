@@ -1,0 +1,54 @@
+FROM smri_pipeline_win:ai AS ai
+FROM smri_pipeline_win:tools AS tools
+FROM freesurfer/freesurfer:8.1.0
+
+USER root
+
+# Keep FreeSurfer as the final base so its large layers remain shared instead of
+# being copied and unpacked into a second 40+ GB layer.
+RUN mkdir -p /opt/smri /opt/micromamba/envs/sMRI_pipeline_win
+COPY --from=tools /opt/micromamba/envs/sMRI_pipeline_win/ /opt/smri/tools-env/
+COPY --from=tools /usr/local/bin/micromamba /usr/local/bin/micromamba
+COPY --from=ai /opt/micromamba/envs/sMRI_pipeline_win/ /opt/micromamba/envs/sMRI_pipeline_win/
+
+COPY --from=fsl / /home/linmo22/fsl/
+COPY --from=nnunet / /opt/smri/models/nnUNet/
+COPY --from=moardiff / /opt/smri/models/denoise_diffusion/CBCP_UnDPM_with_age_finetune/
+COPY --from=workbench / /opt/smri/workbench/
+COPY --from=templates / /opt/smri/templates/
+
+RUN ln -s /home/linmo22/fsl /opt/fsl \
+    && ln -s /usr/local/freesurfer/8.1.0-1 /opt/freesurfer
+
+ENV SMRI_DOCKER_BUNDLED_RESOURCES=1 \
+    FSLDIR=/opt/fsl \
+    FREESURFER_HOME=/opt/freesurfer \
+    ANTSPATH=/opt/smri/tools-env/bin \
+    NNUNET_RESOURCE_DIR=/opt/smri/models/nnUNet \
+    nnUNet_raw_data_base=/opt/smri/models/nnUNet/nnUNetData/nnUNet_raw_data_base \
+    nnUNet_preprocessed=/opt/smri/models/nnUNet/nnUNetData/nnUNet_preprocessed \
+    RESULTS_FOLDER=/opt/smri/models/nnUNet/nnUNetData/RESULTS_FOLDER \
+    MOARDIFF_DIR=/opt/smri/models/denoise_diffusion/CBCP_UnDPM_with_age_finetune \
+    MOARDIFF_CKPT=/opt/smri/models/denoise_diffusion/CBCP_UnDPM_with_age_finetune/exp/logs/finetuneDPM_with_age/ckpt_100000.pth \
+    SMRI_WORKBENCH_BIN=/opt/smri/workbench/bin_linux64 \
+    SMRI_TEMPLATE_DIR=/opt/smri/templates/UNC-BCP-4D-Infant-Brain-Volumetric-Atlas-Ver2/BCP-atlas-for_release-Ver2.0.0 \
+    FSLOUTPUTTYPE=NIFTI_GZ \
+    NVIDIA_VISIBLE_DEVICES=all \
+    NVIDIA_DRIVER_CAPABILITIES=compute,utility \
+    PATH=/opt/micromamba/envs/sMRI_pipeline_win/bin:/opt/smri/tools-env/bin:/opt/fsl/share/fsl/bin:/opt/fsl/bin:/opt/freesurfer/bin:/opt/smri/workbench/bin_linux64:/usr/local/bin:$PATH
+
+RUN python -c "import torch; print(torch.__version__, torch.version.cuda)" \
+    && test -x /opt/fsl/bin/flirt \
+    && test -x /opt/smri/tools-env/bin/N4BiasFieldCorrection \
+    && test -x /opt/freesurfer/bin/infant_recon_all \
+    && test -x /opt/smri/workbench/bin_linux64/wb_command \
+    && test -d "$RESULTS_FOLDER/nnUNet/3d_fullres/Task523_CBCPSkullStrip" \
+    && test -f "$MOARDIFF_DIR/main.py" \
+    && test -f "$MOARDIFF_CKPT" \
+    && test -d "$SMRI_TEMPLATE_DIR"
+
+LABEL org.opencontainers.image.source="https://github.com/Caibility1/sMRI_pipelineV2_win" \
+      org.opencontainers.image.title="sMRI Pipeline Windows all-in-one portable runtime"
+
+WORKDIR /pipeline
+CMD ["/bin/bash"]

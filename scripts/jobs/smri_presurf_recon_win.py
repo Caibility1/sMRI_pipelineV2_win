@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Windows/WSL2 one-stop presurf/recon entrypoint for sMRI Pipeline V2."""
 
 from __future__ import annotations
@@ -98,8 +98,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--submit", action="store_true")
     parser.add_argument("--Qsubmit", dest="qsubmit", action="store_true", help=argparse.SUPPRESS)
     parser.add_argument("--presurf-only", action="store_true")
-    parser.add_argument("--presurf-backend", type=parse_backend, default="windows")
-    parser.add_argument("--recon-backend", type=parse_backend, default="wsl")
+    parser.add_argument("--presurf-backend", type=parse_backend, default=os.environ.get("SMRI_PRESURF_BACKEND", "windows"))
+    parser.add_argument("--recon-backend", type=parse_backend, default=os.environ.get("SMRI_RECON_BACKEND", "wsl"))
     parser.add_argument("--freesurfer-home", default=os.environ.get("FREESURFER_HOME", ""))
     parser.add_argument("--fs-license", default=os.environ.get("FS_LICENSE", ""))
     parser.add_argument("--recon-jobs", default=os.environ.get("SMRI_RECON_JOBS", "4"))

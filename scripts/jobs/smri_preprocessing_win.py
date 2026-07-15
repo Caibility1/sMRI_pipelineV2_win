@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Windows/WSL2 one-stop preprocessing entrypoint for sMRI Pipeline V2."""
 
 from __future__ import annotations
@@ -405,11 +405,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--denoising-start", action="store_true")
     parser.add_argument("--denoising", action="store_true")
     parser.add_argument("--run-maskall-local", action="store_true")
-    parser.add_argument("--registration-backend", type=parse_backend, default="wsl")
-    parser.add_argument("--nnunet-backend", type=parse_backend, default="wsl")
-    parser.add_argument("--mask-backend", type=parse_backend, default="windows")
-    parser.add_argument("--acpc-backend", type=parse_backend, default="wsl")
-    parser.add_argument("--denoise-backend", type=parse_backend, default="wsl")
+    parser.add_argument("--registration-backend", type=parse_backend, default=os.environ.get("SMRI_REGISTRATION_BACKEND", "wsl"))
+    parser.add_argument("--nnunet-backend", type=parse_backend, default=os.environ.get("SMRI_NNUNET_BACKEND", "wsl"))
+    parser.add_argument("--mask-backend", type=parse_backend, default=os.environ.get("SMRI_MASK_BACKEND", "windows"))
+    parser.add_argument("--acpc-backend", type=parse_backend, default=os.environ.get("SMRI_ACPC_BACKEND", "wsl"))
+    parser.add_argument("--denoise-backend", type=parse_backend, default=os.environ.get("SMRI_DENOISE_BACKEND", "wsl"))
     parser.add_argument("--nnunet-resource-dir")
     parser.add_argument("--nnunet-task-name", default=os.environ.get("SMRI_NNUNET_TASK_NAME", "523"))
     parser.add_argument("--moardiff-dir")

@@ -1,0 +1,24 @@
+name: smri_pipeline_win
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pip
+  - numpy<2
+  - scipy
+  - pandas
+  - openpyxl
+  - nibabel
+  - simpleitk
+  - scikit-image
+  - scikit-learn
+  - matplotlib
+  - tqdm
+  - pyyaml
+  - imageio
+  - einops
+  - requests
+  - pip:
+      - dicom2nifti
+      - medpy

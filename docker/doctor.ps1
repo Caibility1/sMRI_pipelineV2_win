@@ -1,4 +1,4 @@
-﻿param(
+param(
   [string]$PipelineDir = (Resolve-Path (Join-Path $PSScriptRoot "..")),
   [string]$BatchDir = "",
   [string]$AiImage = $(if ($env:SMRI_DOCKER_AI_IMAGE) { $env:SMRI_DOCKER_AI_IMAGE } else { "smri_pipeline_win:ai" }),
@@ -47,6 +47,13 @@ if ($env:SMRI_DOCKER_EXTRA_MOUNTS) {
 
 Add-ContainerEnv "FSLDIR" $env:FSLDIR
 Add-ContainerEnv "FREESURFER_HOME" $env:FREESURFER_HOME
+Add-ContainerEnv "ANTSPATH" $env:ANTSPATH
+Add-ContainerEnv "SMRI_DOCKER_BUNDLED_RESOURCES" $env:SMRI_DOCKER_BUNDLED_RESOURCES
+Add-ContainerEnv "NNUNET_RESOURCE_DIR" $env:NNUNET_RESOURCE_DIR
+Add-ContainerEnv "MOARDIFF_DIR" $env:MOARDIFF_DIR
+Add-ContainerEnv "MOARDIFF_CKPT" $env:MOARDIFF_CKPT
+Add-ContainerEnv "SMRI_TEMPLATE_DIR" $env:SMRI_TEMPLATE_DIR
+Add-ContainerEnv "SMRI_WORKBENCH_BIN" $env:SMRI_WORKBENCH_BIN
 
 $DefaultFsLicense = Join-Path $PipelineDir "resources\software\freesurfer\license.txt"
 if (-not $env:FS_LICENSE -and (Test-Path -LiteralPath $DefaultFsLicense)) {
@@ -82,7 +89,7 @@ if ($Gpus -and $Gpus.ToLower() -notin @("none", "false", "0", "no")) {
 Write-Section "Tools Container"
 if ($ToolsImageExists) {
   Test-CommandOk "tools container basic checks" {
-    $toolsCheck = 'source /pipeline/docker/container_env.sh; python --version; echo FSLDIR=${FSLDIR:-}; echo FREESURFER_HOME=${FREESURFER_HOME:-}; echo FS_LICENSE=${FS_LICENSE:-}; echo ANTSPATH=${ANTSPATH:-}; for cmd in N4BiasFieldCorrection wb_command flirt recon-all mri_convert infant_recon_all; do if path=$(command -v "$cmd" 2>/dev/null); then echo FOUND $cmd=$path; else echo MISSING $cmd; fi; done'
+    $toolsCheck = 'source /pipeline/docker/container_env.sh; python --version; echo FSLDIR=${FSLDIR:-}; echo FREESURFER_HOME=${FREESURFER_HOME:-}; echo FS_LICENSE=${FS_LICENSE:-}; echo ANTSPATH=${ANTSPATH:-}; echo SMRI_TEMPLATE_DIR=${SMRI_TEMPLATE_DIR:-}; for cmd in N4BiasFieldCorrection wb_command flirt recon-all mri_convert infant_recon_all; do path=$(command -v "$cmd" 2>/dev/null) || exit 1; echo FOUND $cmd=$path; done; test -d /opt/smri/models/nnUNet; test -f /opt/smri/models/denoise_diffusion/CBCP_UnDPM_with_age_finetune/main.py; test -d "${SMRI_TEMPLATE_DIR:-/missing}"; test -n "${FS_LICENSE:-}"; test -f "$FS_LICENSE"'
     docker run --rm @EnvArgs @MountArgs $ToolsImage /bin/bash -lc $toolsCheck
   }
 } else {
@@ -92,7 +99,7 @@ if ($ToolsImageExists) {
 Write-Section "AI Container"
 if ($AiImageExists) {
   Test-CommandOk "AI container Python/PyTorch checks" {
-    docker run --rm @GpuArgs @BaseMountArgs $AiImage python -c "import torch; print('torch', torch.__version__); print('cuda_available', torch.cuda.is_available()); print('cuda_device_count', torch.cuda.device_count())"
+    docker run --rm @GpuArgs @EnvArgs @BaseMountArgs $AiImage python -c "import os, torch; print('torch', torch.__version__); print('cuda_available', torch.cuda.is_available()); print('cuda_device_count', torch.cuda.device_count()); required=['/opt/smri/models/nnUNet', os.environ.get('MOARDIFF_CKPT', '')]; assert all(p and os.path.exists(p) for p in required), required"
   }
 } else {
   Write-Host "[SKIP] AI image is not available: $AiImage"

@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env python3
+#!/usr/bin/env python3
 """Shared helpers for Windows/WSL2 sMRI entrypoints."""
 
 from __future__ import annotations
@@ -15,6 +15,21 @@ from typing import Iterable, Mapping, Sequence
 
 
 STATUS_FIELDS = ["step", "backend", "status", "started", "finished", "returncode", "log", "note"]
+
+BUNDLED_DOCKER_ENV = {
+    "SMRI_DOCKER_BUNDLED_RESOURCES": "1",
+    "NNUNET_RESOURCE_DIR": "/opt/smri/models/nnUNet",
+    "nnUNet_raw_data_base": "/opt/smri/models/nnUNet/nnUNetData/nnUNet_raw_data_base",
+    "nnUNet_preprocessed": "/opt/smri/models/nnUNet/nnUNetData/nnUNet_preprocessed",
+    "RESULTS_FOLDER": "/opt/smri/models/nnUNet/nnUNetData/RESULTS_FOLDER",
+    "MOARDIFF_DIR": "/opt/smri/models/denoise_diffusion/CBCP_UnDPM_with_age_finetune",
+    "MOARDIFF_CKPT": "/opt/smri/models/denoise_diffusion/CBCP_UnDPM_with_age_finetune/exp/logs/finetuneDPM_with_age/ckpt_100000.pth",
+    "SMRI_TEMPLATE_DIR": "/opt/smri/templates/UNC-BCP-4D-Infant-Brain-Volumetric-Atlas-Ver2/BCP-atlas-for_release-Ver2.0.0",
+    "SMRI_WORKBENCH_BIN": "/opt/smri/workbench/bin_linux64",
+    "FSLDIR": "/opt/fsl",
+    "FREESURFER_HOME": "/opt/freesurfer",
+    "ANTSPATH": "/opt/smri/tools-env/bin",
+}
 
 
 class PipelineContext:
@@ -100,6 +115,11 @@ def nnunet_env_exports(resource_dir: Path) -> dict[str, str]:
         "RESULTS_FOLDER": str(data_dir / "RESULTS_FOLDER"),
     }
 
+
+
+def docker_uses_bundled_resources() -> bool:
+    value = os.environ.get("SMRI_DOCKER_BUNDLED_RESOURCES", "")
+    return value.strip().lower() in {"1", "true", "yes", "on"}
 
 
 def default_fs_license_path(pipeline_dir: Path) -> Path:
@@ -203,6 +223,9 @@ def build_docker_bash_command(
         "PIPELINE_DIR": "/pipeline",
         "BATCH_DIR": "/batch",
     }
+    bundled_resources = docker_uses_bundled_resources()
+    if bundled_resources:
+        exports.update(BUNDLED_DOCKER_ENV)
     mounts = [
         f"{ctx.pipeline_dir.resolve()}:/pipeline",
         f"{ctx.batch_dir.resolve()}:/batch",
@@ -210,13 +233,15 @@ def build_docker_bash_command(
     extra_mounts = os.environ.get("SMRI_DOCKER_EXTRA_MOUNTS", "")
     if extra_mounts:
         mounts.extend(mount.strip() for mount in extra_mounts.split(";") if mount.strip())
-    if nnunet_resource_dir is not None:
+    if nnunet_resource_dir is not None and not bundled_resources:
         exports.update(nnunet_env_exports(PurePosixPath("/pipeline") / "resources" / "models" / "nnUNet"))
     effective_extra_env = _docker_extra_env_with_defaults(ctx, extra_env)
     if effective_extra_env:
         for key, value in effective_extra_env.items():
             value_text = str(value)
-            if key == "FS_LICENSE" and looks_like_windows_host_path(value_text):
+            if bundled_resources and key in BUNDLED_DOCKER_ENV:
+                exports[key] = BUNDLED_DOCKER_ENV[key]
+            elif key == "FS_LICENSE" and looks_like_windows_host_path(value_text):
                 license_path = Path(value_text).expanduser().resolve()
                 mapped = None
                 for root, mount_point in [(ctx.pipeline_dir, "/pipeline"), (ctx.batch_dir, "/batch")]:

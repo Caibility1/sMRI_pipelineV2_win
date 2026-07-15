@@ -1,0 +1,31 @@
+FROM freesurfer/freesurfer:8.1.0 AS freesurfer
+FROM smri_pipeline_win:tools
+
+ENV SMRI_DOCKER_BUNDLED_RESOURCES=1 \
+    FSLDIR=/opt/fsl \
+    FREESURFER_HOME=/opt/freesurfer \
+    SMRI_WORKBENCH_BIN=/opt/smri/workbench/bin_linux64 \
+    SMRI_TEMPLATE_DIR=/opt/smri/templates/UNC-BCP-4D-Infant-Brain-Volumetric-Atlas-Ver2/BCP-atlas-for_release-Ver2.0.0 \
+    FSLOUTPUTTYPE=NIFTI_GZ
+
+COPY --from=freesurfer /usr/local/freesurfer/8.1.0-1/ /opt/freesurfer/
+COPY --from=fsl / /home/linmo22/fsl/
+COPY --from=workbench / /opt/smri/workbench/
+COPY --from=templates / /opt/smri/templates/
+
+RUN ln -s /home/linmo22/fsl /opt/fsl
+
+ENV PATH=/opt/fsl/share/fsl/bin:/opt/fsl/bin:/opt/freesurfer/bin:/opt/smri/workbench/bin_linux64:$PATH
+
+RUN test -f /opt/fsl/etc/fslconf/fsl.sh \
+    && test -x /opt/fsl/bin/flirt \
+    && test -f /opt/freesurfer/SetUpFreeSurfer.sh \
+    && test -x /opt/freesurfer/bin/infant_recon_all \
+    && test -x /opt/smri/workbench/bin_linux64/wb_command \
+    && test -d "$SMRI_TEMPLATE_DIR"
+
+LABEL org.opencontainers.image.source="https://github.com/Caibility1/sMRI_pipelineV2_win" \
+      org.opencontainers.image.title="sMRI Pipeline Windows portable neuroimaging tools"
+
+WORKDIR /pipeline
+CMD ["/bin/bash"]

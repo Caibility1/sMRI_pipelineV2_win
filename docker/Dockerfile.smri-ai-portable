@@ -1,0 +1,22 @@
+FROM smri_pipeline_win:ai
+
+ENV SMRI_DOCKER_BUNDLED_RESOURCES=1 \
+    NNUNET_RESOURCE_DIR=/opt/smri/models/nnUNet \
+    nnUNet_raw_data_base=/opt/smri/models/nnUNet/nnUNetData/nnUNet_raw_data_base \
+    nnUNet_preprocessed=/opt/smri/models/nnUNet/nnUNetData/nnUNet_preprocessed \
+    RESULTS_FOLDER=/opt/smri/models/nnUNet/nnUNetData/RESULTS_FOLDER \
+    MOARDIFF_DIR=/opt/smri/models/denoise_diffusion/CBCP_UnDPM_with_age_finetune \
+    MOARDIFF_CKPT=/opt/smri/models/denoise_diffusion/CBCP_UnDPM_with_age_finetune/exp/logs/finetuneDPM_with_age/ckpt_100000.pth
+
+COPY --from=nnunet / /opt/smri/models/nnUNet/
+COPY --from=moardiff / /opt/smri/models/denoise_diffusion/CBCP_UnDPM_with_age_finetune/
+
+RUN test -d "$RESULTS_FOLDER/nnUNet/3d_fullres/Task523_CBCPSkullStrip" \
+    && test -f "$MOARDIFF_DIR/main.py" \
+    && test -f "$MOARDIFF_CKPT"
+
+LABEL org.opencontainers.image.source="https://github.com/Caibility1/sMRI_pipelineV2_win" \
+      org.opencontainers.image.title="sMRI Pipeline Windows portable AI runtime"
+
+WORKDIR /pipeline
+CMD ["/bin/bash"]

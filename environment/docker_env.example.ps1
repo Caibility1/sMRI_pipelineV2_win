@@ -1,12 +1,16 @@
-﻿# sMRI Pipeline V2 Docker backend environment example.
+# sMRI Pipeline V2 Docker backend environment example.
 # Copy to environment/docker_env.local.ps1 and edit local-only paths.
 # Docker is optional. Complete the WSL tutorial first unless prepared images are provided.
 
-$env:SMRI_DOCKER_TOOLS_IMAGE = "smri_pipeline_win:tools"
-$env:SMRI_DOCKER_AI_IMAGE = "smri_pipeline_win:ai"
+$env:SMRI_DOCKER_TOOLS_IMAGE = "smri_pipeline_win:full-portable"
+$env:SMRI_DOCKER_AI_IMAGE = "smri_pipeline_win:full-portable"
 
 # Use "all" for GPU nnU-Net/moAR-Diff containers. Use "none" only for CPU smoke tests.
 $env:SMRI_DOCKER_GPUS = "all"
+$env:SMRI_DOCKER_BUNDLED_RESOURCES = "1"
+$env:FSLDIR = "/opt/fsl"
+$env:FREESURFER_HOME = "/opt/freesurfer"
+$env:ANTSPATH = "/opt/smri/tools-env/bin"
 
 # FreeSurfer license default:
 #   resources\software\freesurfer\license.txt

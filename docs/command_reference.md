@@ -1,4 +1,4 @@
-﻿# Command Reference
+# Command Reference
 
 Use this page after the deployment tutorial is complete. It explains what each command option means without requiring source-code reading.
 
@@ -45,19 +45,19 @@ Only one resume mode should be used at once: `--acpc-start`, `--denoising-start`
 
 Backend values are `windows`, `wsl`, `docker`, or `skip`, but not every step supports every backend.
 
-- `--registration-backend`: FSL registration. Recommended: `wsl` or `docker`.
-- `--nnunet-backend`: nnU-Net skull stripping. Recommended: `wsl`; `docker` after Docker setup; `windows` only if Windows CUDA/PyTorch works.
+- `--registration-backend`: FSL registration. Recommended after portable setup: `docker`.
+- `--nnunet-backend`: nnU-Net skull stripping. Recommended after portable setup: `docker`; use `windows` only if Windows CUDA/PyTorch is configured.
 - `--mask-backend`: mask_all. Default: `windows`.
-- `--acpc-backend`: FSL/ANTs/Workbench ACPC. Recommended: `wsl` or `docker`.
-- `--denoise-backend`: moAR-Diff. Recommended: `wsl`; `docker` after Docker GPU setup; `windows` only if Windows CUDA/PyTorch works.
+- `--acpc-backend`: FSL/ANTs/Workbench ACPC. Recommended after portable setup: `docker`.
+- `--denoise-backend`: moAR-Diff. Recommended after portable setup: `docker`; use `windows` only if Windows CUDA/PyTorch is configured.
 
 ### Parallelism and Runtime Options
 
 - `--acpc-jobs <N>`: ACPC subject parallelism. Default: `4`.
-- `--wsl-distro <name>`: WSL distribution name. Example: `Ubuntu-22.04`.
+- `--wsl-distro <name>`: used only when a backend is explicitly set to `wsl`; it is not needed in the recommended Docker mode.
 - `--python-bin <path>`: Windows Python executable. Default: current `python`.
-- `--docker-tools-image <name>`: tools container image. Default: `smri_pipeline_win:tools`.
-- `--docker-ai-image <name>`: AI container image. Default: `smri_pipeline_win:ai`.
+- `--docker-tools-image <name>`: tools image override. Portable setup supplies `smri_pipeline_win:full-portable`.
+- `--docker-ai-image <name>`: AI image override. Portable setup supplies `smri_pipeline_win:full-portable`.
 - `--docker-gpus <value>`: Docker GPU setting. Use `all` for NVIDIA GPU containers; `none` for CPU-only smoke tests.
 
 ## 2. Presurf and Recon
@@ -85,11 +85,11 @@ Typical full run:
 ### Backend and FreeSurfer Options
 
 - `--presurf-backend`: default `windows`; presurf is lightweight Python/file preparation.
-- `--recon-backend`: default `wsl`; FreeSurfer requires Linux/WSL or Docker.
+- `--recon-backend`: portable setup selects `docker`; FreeSurfer requires Docker or an explicitly configured WSL backend.
 - `--freesurfer-home <dir>`: FreeSurfer install directory, or set `FREESURFER_HOME`.
 - `--fs-license <path>`: FreeSurfer license file, or set `FS_LICENSE`.
 - `--recon-jobs <N>`: number of subjects reconstructed at the same time. `--recon-jobs 2` means two subjects in parallel.
-- `--docker-tools-image <name>`: Docker tools image. Default: `smri_pipeline_win:tools`.
+- `--docker-tools-image <name>`: Docker tools image override. Portable setup supplies `smri_pipeline_win:full-portable`.
 - `--docker-gpus <value>`: Docker GPU setting. Recon usually does not need GPU; default `none` is fine.
 
 ## 3. How to Read Runtime Output

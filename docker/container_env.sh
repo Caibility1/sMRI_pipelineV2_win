@@ -64,7 +64,15 @@ if [ -n "${FREESURFER_HOME:-}" ] && [ -f "$FREESURFER_HOME/SetUpFreeSurfer.sh" ]
     set -u
 fi
 
-export NNUNET_RESOURCE_DIR="${NNUNET_RESOURCE_DIR:-$PIPELINE_DIR/resources/models/nnUNet}"
+if [ "${SMRI_DOCKER_BUNDLED_RESOURCES:-0}" = "1" ]; then
+    export NNUNET_RESOURCE_DIR="${NNUNET_RESOURCE_DIR:-/opt/smri/models/nnUNet}"
+    export MOARDIFF_DIR="${MOARDIFF_DIR:-/opt/smri/models/denoise_diffusion/CBCP_UnDPM_with_age_finetune}"
+    export SMRI_TEMPLATE_DIR="${SMRI_TEMPLATE_DIR:-/opt/smri/templates/UNC-BCP-4D-Infant-Brain-Volumetric-Atlas-Ver2/BCP-atlas-for_release-Ver2.0.0}"
+    export SMRI_WORKBENCH_BIN="${SMRI_WORKBENCH_BIN:-/opt/smri/workbench/bin_linux64}"
+else
+    export NNUNET_RESOURCE_DIR="${NNUNET_RESOURCE_DIR:-$PIPELINE_DIR/resources/models/nnUNet}"
+    export MOARDIFF_DIR="${MOARDIFF_DIR:-$PIPELINE_DIR/resources/models/denoise_diffusion/CBCP_UnDPM_with_age_finetune}"
+fi
 export NNUNET_DATA_DIR="${NNUNET_DATA_DIR:-$NNUNET_RESOURCE_DIR/nnUNetData}"
 export nnUNet_raw_data_base="${nnUNet_raw_data_base:-$NNUNET_DATA_DIR/nnUNet_raw_data_base}"
 export nnUNet_preprocessed="${nnUNet_preprocessed:-$NNUNET_DATA_DIR/nnUNet_preprocessed}"
@@ -73,7 +81,7 @@ if [ -d "$NNUNET_RESOURCE_DIR/nnunet" ]; then
     export PYTHONPATH="$NNUNET_RESOURCE_DIR:${PYTHONPATH:-}"
 fi
 
-export MOARDIFF_DIR="${MOARDIFF_DIR:-$PIPELINE_DIR/resources/models/denoise_diffusion/CBCP_UnDPM_with_age_finetune}"
+
 export MOARDIFF_CKPT="${MOARDIFF_CKPT:-$MOARDIFF_DIR/exp/logs/finetuneDPM_with_age/ckpt_100000.pth}"
 export MOARDIFF_CONFIG_NAME="${MOARDIFF_CONFIG_NAME:-inference.yml}"
 

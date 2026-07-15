@@ -1,179 +1,133 @@
-﻿# sMRI Pipeline V2 Windows/WSL2
+# sMRI Pipeline V2 Windows/WSL2/Docker
 
-This repository is the Windows/WSL2 deployment branch of an sMRI preprocessing and infant FreeSurfer pipeline. It keeps the original algorithm scripts where possible, but replaces Linux-cluster Slurm submission with Windows PowerShell orchestration, WSL2 Linux tools, and optional Docker containers.
+This repository provides two one-stop PowerShell entrypoints for structural MRI preprocessing and infant FreeSurfer reconstruction on Windows. The recommended deployment uses one all-in-one Docker image, while Windows runs only lightweight Python orchestration.
 
-The goal is simple: a new user should be able to deploy the command-line pipeline, run one batch, and find the reports without reading source code.
+## Recommended New-PC Path
 
-## 1. User-Facing Commands
+The portable image contains PyTorch/CUDA, nnU-Net and its Task523 model, moAR-Diff and its checkpoint, FSL, ANTs, FreeSurfer 8.1, Workbench, and the UNC infant templates.
 
-There are two main entrypoints:
+The host PC needs Windows 10/11, Docker Desktop with WSL2 system support (no separate Ubuntu distribution is required), Git, Miniforge, an NVIDIA driver for GPU stages, and a valid FreeSurfer license.
 
-```powershell
+After cloning the repository:
+
+~~~powershell
+cd D:\path\to\sMRI_pipelineV2_win
+.\setup_new_machine.ps1 -Release <RELEASE> -FsLicenseSource D:\path\to\license.txt
+~~~
+
+For a network-free installation:
+
+~~~powershell
+.\setup_new_machine.ps1 -OfflineArchive D:\smri_transfer\smri_pipeline_win_full.tar -FsLicenseSource D:\smri_transfer\license.txt
+~~~
+
+The setup is repeatable. If it asks for a restart, a new PowerShell window, or the first Docker Desktop start, do that one action and run the same command again. No FSL/ANTs/FreeSurfer installation inside Ubuntu is required.
+
+Full instructions: [Portable Docker deployment tutorial](docs/portable_docker_tutorial.md).
+
+## User Commands
+
+Preprocessing:
+
+~~~powershell
 .\bin\smri_preprocessing.ps1 <BATCH_DIR> [options]
+~~~
+
+Post-segmentation presurf/recon:
+
+~~~powershell
 .\bin\smri_presurf_recon.ps1 <BATCH_DIR> [options]
-```
+~~~
 
-- `smri_preprocessing.ps1` runs data standardization, age suffix handling, T2-to-T1 registration, nnU-Net skull stripping, masking, ACPC alignment, ACPC QC summaries, and optional moAR-Diff denoising.
-- `smri_presurf_recon.ps1` prepares segmentation outputs for FreeSurfer and runs infant recon.
+Both entrypoints automatically load:
 
-Supporting scripts live under `scripts/jobs` and `scripts/steps`. Normal users should not need to run those directly.
+~~~text
+environment\windows_env.local.ps1
+environment\docker_env.local.ps1
+~~~
 
-## 2. Recommended New-Machine Path
+Users do not need to remember FSL, FreeSurfer, Workbench, template, model, or nnU-Net environment variables after setup.
 
-For a new PC, use this order:
+## Docker-First Example
 
-1. Install or verify Windows prerequisites: PowerShell, Git, Miniforge/conda, NVIDIA driver if a GPU exists.
-2. Install or verify WSL2 Ubuntu 22.04.
-3. Create the Windows conda environment `sMRI_pipeline_win`.
-4. Install or verify Linux tools in WSL2: FSL, ANTs, Workbench, FreeSurfer, and a FreeSurfer license.
-5. Put model resources under `resources/models`.
-6. Optional: install Docker Desktop and pull/build `smri_pipeline_win:ai` and `smri_pipeline_win:tools`.
-7. Run doctor/smoke tests before a full batch.
-8. Run preprocessing, then run presurf/recon after `6_seg` exists.
+External age table without visual QC:
 
-Start with: [New machine tutorial](docs/new_machine_tutorial.md).
+~~~powershell
+.\bin\smri_preprocessing.ps1 D:\data\batch001 --submit --qc-excel D:\data\age.xlsx --age-source excel --qc-mode all-pass
+~~~
 
-## 3. What Docker Solves
+After valid segmentation exists under 6_seg:
 
-Docker is useful for reproducible runtime environments. It does not remove every manual step.
+~~~powershell
+.\bin\smri_presurf_recon.ps1 D:\data\batch001 --submit --recon-jobs 1
+~~~
 
-Docker can provide:
+## Data And Segmentation Boundary
 
-- `smri_pipeline_win:ai`: CUDA/PyTorch, nnU-Net v1 runtime, moAR-Diff dependencies.
-- `smri_pipeline_win:tools`: Linux utility runtime, ANTs/support packages, and wrappers that can use mounted tools.
-- Consistent command execution through the same PowerShell entrypoints.
+MRI data is never stored in Git or Docker images. The absolute batch directory is mounted into the container and all outputs remain on the host.
 
-Usually still manual or institution-specific:
+Minimum preprocessing input:
 
-- Windows NVIDIA driver and Docker Desktop WSL2/GPU integration.
-- FreeSurfer license.
-- Whether FSL/FreeSurfer are installed in WSL, mounted into Docker, or baked into a private internal image.
-- Private model checkpoints if they cannot be redistributed.
-- Local batch data location.
+~~~text
+<BATCH_DIR>\1_T2toT1\data\<subject_id>\T1.nii.gz
+<BATCH_DIR>\1_T2toT1\data\<subject_id>\T2.nii.gz   optional
+~~~
 
-Read: [Docker deployment guide](docs/windows_docker_deployment_guide.md) and [Containerization strategy](docs/containerization_strategy.md).
+Recon requires externally generated segmentation:
 
-## 4. Data Modes
+~~~text
+<BATCH_DIR>\6_seg\<subject_id>\brain.nii.gz
+<BATCH_DIR>\6_seg\<subject_id>\dk-struct.nii.gz
+<BATCH_DIR>\6_seg\<subject_id>\tissue.nii.gz
+~~~
 
-### Known internal datasets with visual QC
+The existing iBEAT image is not yet called automatically by the two entrypoints.
 
-Use this when you have a CBCP/ASD/SHCH-style QC workbook with subject ID, age, and T1 visual QC status.
+## Verify And Find Results
 
-```powershell
-.\bin\smri_preprocessing.ps1 <BATCH_DIR> `
-  --submit `
-  --qc-excel <QC_EXCEL.xlsx>
-```
+Run doctor:
 
-The pipeline reads age from the workbook and selects `fail` / `questionable` T1 cases for denoising.
+~~~powershell
+.\docker\doctor.ps1 -PipelineDir (Resolve-Path .)
+~~~
 
-### External data with age but no visual QC
+Reports and status:
 
-Use this when the new dataset only has age information, or when every case should be treated as pass for visual QC.
+~~~text
+<BATCH_DIR>\logs\preprocessing_report.md
+<BATCH_DIR>\logs\postprocessing_report.md
+<BATCH_DIR>\manifests\windows_status.csv
+<BATCH_DIR>\manifests\40_recon_summary.csv
+~~~
 
-If subject folders already include age:
+## Publishing Or Moving The Image
 
-```text
-<BATCH_DIR>\1_T2toT1\data\subject001_24mo\T1.nii.gz
-```
+Build on a prepared source PC:
 
-run:
+~~~powershell
+.\docker\build_portable_images.ps1
+~~~
 
-```powershell
-.\bin\smri_preprocessing.ps1 <BATCH_DIR> `
-  --submit `
-  --age-source folder `
-  --qc-mode all-pass
-```
+Publish to private GHCR:
 
-If age is in a simple Excel file, use columns such as `subject_id` and `age` or `month`:
+~~~powershell
+.\docker\publish_portable_images.ps1 -Release <RELEASE> -AlsoLatest
+~~~
 
-```powershell
-.\bin\smri_preprocessing.ps1 <BATCH_DIR> `
-  --submit `
-  --qc-excel <AGE_TABLE.xlsx> `
-  --age-source excel `
-  --qc-mode all-pass
-```
+Create an offline archive instead:
 
-The ID matching is tolerant of Excel dropping leading zeros for numeric IDs.
+~~~powershell
+.\docker\publish_portable_images.ps1 -Release <RELEASE> -SkipPush -OfflineArchive D:\smri_transfer\smri_pipeline_win_full.tar
+~~~
 
-## 5. Expected Batch Layout
+The local development images remain available, but the recommended remote-deployment tag is smri_pipeline_win:full-portable.
 
-Preprocessing input:
+## Documentation
 
-```text
-<BATCH_DIR>\
-  1_T2toT1\
-    data\
-      <subject_id>\
-        T1.nii.gz
-        T2.nii.gz   # optional
-```
-
-Postprocessing input after segmentation:
-
-```text
-<BATCH_DIR>\
-  6_seg\
-    <subject_id>\
-      brain.nii.gz
-      dk-struct.nii.gz
-      tissue.nii.gz
-```
-
-Data stays outside Docker images. The launcher mounts `<BATCH_DIR>` into containers at runtime.
-
-## 6. Quick Commands After Deployment
-
-Load local env:
-
-```powershell
-cd <PIPELINE_DIR>
-conda activate sMRI_pipeline_win
-. .\environment\windows_env.local.ps1
-```
-
-If Docker is used:
-
-```powershell
-. .\environment\docker_env.local.ps1
-```
-
-Run preprocessing with visual QC:
-
-```powershell
-.\bin\smri_preprocessing.ps1 <BATCH_DIR> --submit --qc-excel <QC_EXCEL.xlsx>
-```
-
-Run preprocessing for external age-only data:
-
-```powershell
-.\bin\smri_preprocessing.ps1 <BATCH_DIR> --submit --qc-excel <AGE_TABLE.xlsx> --age-source excel --qc-mode all-pass
-```
-
-Run postprocessing/recon after `6_seg` exists:
-
-```powershell
-.\bin\smri_presurf_recon.ps1 <BATCH_DIR> --submit --recon-jobs 2
-```
-
-Use `--recon-jobs 1` on weak machines.
-
-## 7. Logs and Reports
-
-- Preprocessing report: `<BATCH_DIR>\logs\preprocessing_report.md`
-- Postprocessing report: `<BATCH_DIR>\logs\postprocessing_report.md`
-- Step status CSV: `<BATCH_DIR>\manifests\windows_status.csv`
-- FreeSurfer log: `<BATCH_DIR>\7_presurf\<subject_id>\log\recon.log`
-
-## 8. Documentation Map
-
-- [New machine tutorial](docs/new_machine_tutorial.md)
-- [Windows/WSL2 deployment guide](docs/windows_deployment_guide.md)
-- [Docker deployment guide](docs/windows_docker_deployment_guide.md)
+- [Portable Docker deployment tutorial](docs/portable_docker_tutorial.md)
 - [Command reference](docs/command_reference.md)
 - [Full test runbook](docs/full_test_runbook.md)
 - [Hardware and performance](docs/performance_and_hardware.md)
+- [Windows/WSL2 deployment guide](docs/windows_deployment_guide.md)
+- [Docker internals and alternatives](docs/windows_docker_deployment_guide.md)
 - [Containerization strategy](docs/containerization_strategy.md)
-
