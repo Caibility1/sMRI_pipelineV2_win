@@ -1,0 +1,318 @@
+import importlib.util
+import json
+import tempfile
+import unittest
+from pathlib import Path
+from types import SimpleNamespace
+
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def load_script(name):
+    path = ROOT / "scripts" / "steps" / name
+    spec = importlib.util.spec_from_file_location(path.stem, path)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+class DicomSeriesSelectionTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = load_script("40_dicom_to_nifti_demo.py")
+
+    def test_classifies_3d_mprage_as_t1(self):
+        metadata = {
+            "SeriesDescription": "t1_mprage_sag_p2_iso",
+            "ProtocolName": "T1 MPRAGE",
+            "MRAcquisitionType": "3D",
+            "ImageType": ["ORIGINAL", "PRIMARY", "M", "ND"],
+        }
+        self.assertEqual(self.mod.classify_series(metadata), "t1")
+
+    def test_classifies_3d_space_as_t2(self):
+        metadata = {
+            "SeriesDescription": "T2 SPACE SAG ISO",
+            "ProtocolName": "T2w",
+            "MRAcquisitionType": "3D",
+            "ImageType": ["ORIGINAL", "PRIMARY", "M", "ND"],
+        }
+        self.assertEqual(self.mod.classify_series(metadata), "t2")
+
+    def test_excludes_scout_motion_and_derived_series(self):
+        cases = [
+            {"SeriesDescription": "GRE Scout", "ImageType": ["ORIGINAL", "PRIMARY"]},
+            {"SeriesDescription": "Motion Curve", "ImageType": ["ORIGINAL", "PRIMARY"]},
+            {"SeriesDescription": "T1 MPRAGE", "ImageType": ["DERIVED", "SECONDARY"]},
+        ]
+        for metadata in cases:
+            with self.subTest(metadata=metadata):
+                self.assertEqual(self.mod.classify_series(metadata), "excluded")
+
+    def test_excludes_ndc_t1_series(self):
+        metadata = {
+            "SeriesDescription": "t1w_A3.22_iso0.8mm_CBCP_NDC",
+            "ProtocolName": "t1w_A3.22_iso0.8mm_CBCP",
+            "MRAcquisitionType": "3D",
+            "ImageType": ["ORIGINAL", "PRIMARY", "M", "UCA", "MAGNITUDE"],
+        }
+        self.assertEqual(self.mod.classify_series(metadata), "excluded")
+
+    def test_selects_unique_highest_scoring_candidate(self):
+        candidates = [
+            self.mod.SeriesCandidate("001", "t1-low.nii.gz", "t1-low.json", "t1", 40),
+            self.mod.SeriesCandidate("002", "t1-high.nii.gz", "t1-high.json", "t1", 70),
+        ]
+        self.assertEqual(self.mod.choose_series(candidates, "t1").series_number, "002")
+
+    def test_refuses_equally_ranked_t1_candidates(self):
+        candidates = [
+            self.mod.SeriesCandidate("001", "t1-a.nii.gz", "t1-a.json", "t1", 70),
+            self.mod.SeriesCandidate("002", "t1-b.nii.gz", "t1-b.json", "t1", 70),
+        ]
+        with self.assertRaises(self.mod.AmbiguousSeriesError):
+            self.mod.choose_series(candidates, "t1")
+
+    def test_explicit_series_number_resolves_ambiguity(self):
+        candidates = [
+            self.mod.SeriesCandidate("001", "t1-a.nii.gz", "t1-a.json", "t1", 70),
+            self.mod.SeriesCandidate("002", "t1-b.nii.gz", "t1-b.json", "t1", 70),
+        ]
+        selected = self.mod.choose_series(candidates, "t1", requested_series="002")
+        self.assertEqual(selected.nifti_path, "t1-b.nii.gz")
+
+    def test_relative_raw_dir_is_resolved_under_batch(self):
+        batch = Path("/data")
+        self.assertEqual(
+            self.mod.resolve_raw_dir(batch, "26_MRIdata"),
+            batch / "26_MRIdata",
+        )
+
+    def test_inventory_only_keeps_ambiguous_candidates_without_standardizing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            batch = Path(tmp)
+            subject_dir = batch / "0_rawdata" / "001"
+            subject_dir.mkdir(parents=True)
+            candidate_dir = batch / "1_T2toT1" / "dicom_candidates" / "001"
+            candidate_dir.mkdir(parents=True)
+            for number in ("301", "302"):
+                stem = candidate_dir / f"{number}_T1_MPRAGE"
+                Path(str(stem) + ".nii.gz").write_bytes(b"nifti")
+                Path(str(stem) + ".json").write_text(
+                    json.dumps(
+                        {
+                            "SeriesNumber": number,
+                            "SeriesDescription": "T1 MPRAGE",
+                            "MRAcquisitionType": "3D",
+                            "ImageType": ["ORIGINAL", "PRIMARY"],
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+
+            inventory, summary = self.mod.process_subject(
+                subject_dir,
+                batch,
+                SimpleNamespace(
+                    dcm2niix="dcm2niix",
+                    t1_series=None,
+                    t2_series=None,
+                    force=False,
+                    inventory_only=True,
+                ),
+            )
+
+            self.assertEqual(len(inventory), 2)
+            self.assertEqual(summary["status"], "inventory_complete")
+            self.assertFalse((batch / "1_T2toT1" / "data" / "001" / "T1.nii.gz").exists())
+            self.assertTrue(all(row["selected"] == "" for row in inventory))
+
+    def test_dc3d_t1_ranks_above_ndc_t1(self):
+        ndc = {
+            "SeriesDescription": "t1w_iso0.8mm_NDC",
+            "MRAcquisitionType": "3D",
+            "ImageType": ["ORIGINAL", "PRIMARY", "M", "UCA", "MAGNITUDE"],
+        }
+        dc3d = {
+            "SeriesDescription": "t1w_iso0.8mm",
+            "MRAcquisitionType": "3D",
+            "ImageType": ["ORIGINAL", "PRIMARY", "M", "UCA", "DC3D", "MAGNITUDE"],
+        }
+        self.assertGreater(
+            self.mod.score_series(dc3d, "t1"), self.mod.score_series(ndc, "t1")
+        )
+
+
+class StandardReconTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = load_script("41_check_standard_recon_demo.py")
+
+    def test_complete_recon_requires_done_pial_and_brainmask(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            subject = Path(tmp) / "001"
+            for relative in [
+                "scripts/recon-all.done",
+                "surf/lh.pial",
+                "surf/rh.pial",
+                "mri/brainmask.mgz",
+                "mri/aseg.mgz",
+            ]:
+                path = subject / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"ok")
+            self.assertTrue(self.mod.recon_done(subject))
+
+    def test_partial_surface_is_not_complete(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            subject = Path(tmp) / "001"
+            path = subject / "surf" / "lh.pial"
+            path.parent.mkdir(parents=True)
+            path.write_bytes(b"partial")
+            self.assertFalse(self.mod.recon_done(subject))
+
+    def test_recon_shell_uses_standard_recon_all(self):
+        text = (ROOT / "scripts" / "jobs" / "recon_all_demo.sh").read_text(encoding="utf-8")
+        self.assertIn("recon-all", text)
+        self.assertIn("-T2pial", text)
+        self.assertIn("-all", text)
+        self.assertNotIn("infant_recon_all", text)
+        self.assertNotIn("--segfile", text)
+
+    def test_recon_shell_supports_explicit_subject_filter(self):
+        text = (ROOT / "scripts" / "jobs" / "recon_all_demo.sh").read_text(encoding="utf-8")
+        self.assertIn("REQUESTED_SUBJECTS", text)
+
+    def test_recon_shell_checks_t2_before_enabling_t2pial(self):
+        text = (ROOT / "scripts" / "jobs" / "recon_all_demo.sh").read_text(encoding="utf-8")
+        self.assertIn("43_t2_pial_policy_demo.py", text)
+
+    def test_recon_shell_can_resume_stale_container_lock(self):
+        text = (ROOT / "scripts" / "jobs" / "recon_all_demo.sh").read_text(encoding="utf-8")
+        self.assertIn("IsRunning.lh+rh", text)
+        self.assertIn("-no-isrunning", text)
+        self.assertIn("kill -0", text)
+
+    def test_recon_avoids_fs81_mris_volmask_parallel_license_bug(self):
+        text = (ROOT / "scripts" / "jobs" / "recon_all_demo.sh").read_text(encoding="utf-8")
+        self.assertIn('-openmp "$RECON_THREADS"', text)
+        self.assertNotIn('recon_args+=(-parallel', text)
+
+
+class T2PialPolicyTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = load_script("43_t2_pial_policy_demo.py")
+
+    def test_accepts_3d_t2(self):
+        metadata = {
+            "MRAcquisitionType": "3D",
+            "SliceThickness": 0.8,
+            "SpacingBetweenSlices": 0.8,
+        }
+        self.assertTrue(self.mod.is_t2_pial_candidate(metadata))
+
+    def test_rejects_2d_thick_slice_t2(self):
+        metadata = {
+            "MRAcquisitionType": "2D",
+            "SliceThickness": 5,
+            "SpacingBetweenSlices": 6.5,
+        }
+        self.assertFalse(self.mod.is_t2_pial_candidate(metadata))
+
+
+class RegistrationQcTests(unittest.TestCase):
+    def test_registration_job_uses_valid_fsl_qc_commands(self):
+        text = (ROOT / "scripts" / "jobs" / "reg2.sh").read_bytes().decode("utf-8", errors="replace")
+        self.assertIn('"${FSLDIR}/bin/pngappend"', text)
+        self.assertIn('-x 0.5 "$SAGITTAL_PNG"', text)
+        self.assertIn('-y 0.5 "$CORONAL_PNG"', text)
+        self.assertIn('-z 0.5 "$AXIAL_PNG"', text)
+        self.assertIn('-a "$OVERLAY_PNG"', text)
+
+    def test_registration_checkpoint_requires_qc_montage(self):
+        text = (
+            ROOT / "scripts" / "jobs" / "sMRI_pipeline_step0_reg2_v2.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn('combined.png', text)
+
+
+class StlExportTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.mod = load_script("42_export_pial_stl_demo.py")
+
+    def test_builds_left_right_and_combined_surface_commands(self):
+        subject_dir = Path("/subjects/001")
+        output_dir = Path("/output/001")
+        commands = self.mod.build_commands(subject_dir, output_dir, "mris_convert")
+        self.assertEqual(len(commands), 3)
+        self.assertEqual(commands[0][-2:], [str(subject_dir / "surf/lh.pial"), str(output_dir / "lh.pial.stl")])
+        self.assertIn("--combinesurfs", commands[2])
+        self.assertEqual(commands[2][-1], str(output_dir / "brain.pial.stl"))
+
+    def test_stl_checkpoint_requires_all_three_nonempty_files(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp)
+            for name in ("lh.pial.stl", "rh.pial.stl", "brain.pial.stl"):
+                (output / name).write_bytes(b"solid")
+            self.assertTrue(self.mod.stl_done(output))
+            (output / "brain.pial.stl").unlink()
+            self.assertFalse(self.mod.stl_done(output))
+
+    def test_stl_job_tolerates_nonzero_freesurfer_setup_tail_command(self):
+        text = (ROOT / "scripts" / "jobs" / "export_stl_demo.sh").read_text(encoding="utf-8")
+        self.assertIn('source "${FREESURFER_HOME}/SetUpFreeSurfer.sh" || true', text)
+
+
+
+class DemoEntrypointTests(unittest.TestCase):
+    def test_container_image_bundles_code_dcm2niix_and_freesurfer_base(self):
+        text = (ROOT / "docker" / "Dockerfile.smri-demo").read_text(encoding="utf-8")
+        self.assertIn("caibility1/smri_pipeline_win:full-2026-07-15", text)
+        self.assertIn("dcm2niix", text)
+        self.assertIn("COPY", text)
+        self.assertIn("ENTRYPOINT", text)
+
+    def test_linux_controller_skips_research_only_stages(self):
+        text = (ROOT / "scripts" / "jobs" / "smri_reconstruction_demo.sh").read_text(encoding="utf-8")
+        self.assertIn("40_dicom_to_nifti_demo.py", text)
+        self.assertIn("recon_all_demo.sh", text)
+        self.assertNotIn("nnunet", text.lower())
+        self.assertNotIn("presurf", text.lower())
+        self.assertNotIn("acpc", text.lower())
+
+    def test_windows_reconstruction_launcher_mounts_host_data(self):
+        text = (ROOT / "bin" / "smri_reconstruction.ps1").read_text(encoding="utf-8")
+        self.assertIn(":/data", text)
+        self.assertIn("caibility1/smri_pipeline_demo", text)
+        self.assertIn("FS_LICENSE", text)
+
+    def test_dcm2niix_only_is_an_inventory_stage(self):
+        shell = (ROOT / "scripts" / "jobs" / "smri_reconstruction_demo.sh").read_text(encoding="utf-8")
+        launcher = (ROOT / "bin" / "smri_reconstruction.ps1").read_text(encoding="utf-8")
+        self.assertIn("--dcm2niix-only", shell)
+        self.assertIn('DICOM_ARGS+=("--inventory-only")', shell)
+        self.assertIn("--dcm2niix-only", launcher)
+
+    def test_select_only_standardizes_qc_choices_without_starting_recon(self):
+        shell = (ROOT / "scripts" / "jobs" / "smri_reconstruction_demo.sh").read_text(encoding="utf-8")
+        launcher = (ROOT / "bin" / "smri_reconstruction.ps1").read_text(encoding="utf-8")
+        self.assertIn("--select-only", shell)
+        self.assertIn("SELECT_ONLY=1", shell)
+        self.assertIn('if [ "$SELECT_ONLY" -eq 1 ]', shell)
+        self.assertIn("--select-only", launcher)
+
+    def test_setup_creates_environment_directory_in_slim_clone(self):
+        text = (ROOT / "setup_demo.ps1").read_text(encoding="utf-8")
+        self.assertIn('$EnvironmentDir = Join-Path $RepoRoot "environment"', text)
+        self.assertIn("New-Item -ItemType Directory -Force -Path $EnvironmentDir", text)
+
+    def test_windows_stl_launcher_calls_stl_command(self):
+        text = (ROOT / "bin" / "smri_3d_print.ps1").read_text(encoding="utf-8")
+        self.assertIn(":/data", text)
+        self.assertIn('"stl"', text)
+
+if __name__ == "__main__":
+    unittest.main()

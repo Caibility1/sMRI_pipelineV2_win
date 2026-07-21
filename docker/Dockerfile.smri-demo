@@ -1,0 +1,19 @@
+ARG BASE_IMAGE=caibility1/smri_pipeline_win:full-2026-07-15
+FROM ${BASE_IMAGE}
+
+USER root
+RUN command -v dcm2niix && command -v recon-all && command -v mris_convert
+
+COPY . /opt/smri/pipeline_demo
+RUN chmod +x /opt/smri/pipeline_demo/docker/demo_entrypoint.sh \
+    /opt/smri/pipeline_demo/scripts/jobs/*.sh \
+    /opt/smri/pipeline_demo/scripts/steps/*.py
+
+ENV PIPELINE_DIR=/opt/smri/pipeline_demo \
+    PYTHON=python3
+WORKDIR /data
+ENTRYPOINT ["/opt/smri/pipeline_demo/docker/demo_entrypoint.sh"]
+CMD ["help"]
+
+LABEL org.opencontainers.image.source="https://github.com/Caibility1/sMRI_pipeline_demo" \
+      org.opencontainers.image.title="sMRI teaching reconstruction and STL pipeline"
