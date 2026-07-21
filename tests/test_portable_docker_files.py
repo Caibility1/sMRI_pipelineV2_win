@@ -126,6 +126,15 @@ class PortableDockerFileTests(unittest.TestCase):
         self.assertIn('[string]$Registry = "caibility1/smri_pipeline_win"', text)
         self.assertIn("Registry = $Registry", text)
 
+    def test_cmd_bootstrap_bypasses_policy_for_setup_process_only(self):
+        text = self.read("setup_new_machine.cmd")
+        self.assertIn("powershell.exe", text.lower())
+        self.assertIn("-NoProfile", text)
+        self.assertIn("-ExecutionPolicy Bypass", text)
+        self.assertIn('-File "%~dp0setup_new_machine.ps1"', text)
+        self.assertIn("%*", text)
+        self.assertIn("exit /b %ERRORLEVEL%", text)
+
     def test_new_machine_setup_finds_conda_without_shell_initialization(self):
         text = self.read("setup_new_machine.ps1")
         self.assertIn("function Resolve-CondaExecutable", text)

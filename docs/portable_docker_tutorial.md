@@ -76,34 +76,39 @@ git pull
 
 Large models and Linux programs are intentionally not stored in Git history.
 
-## 5A. Online Image Installation Through GHCR
+## 5A. Online Image Installation Through Docker Hub
 
-Create a GitHub personal access token (classic) with `read:packages`. In PowerShell:
+Start Docker Desktop and wait until its Linux engine reports that it is running. The release image is public, so a Docker Hub login is normally not required for downloading it.
+
+Run setup from the repository root. Use the `.cmd` launcher on a new PC so that a restrictive default PowerShell execution policy cannot block the setup script before it starts:
 
 ```powershell
-$env:CR_PAT = "<YOUR_GITHUB_TOKEN>"
-$env:CR_PAT | docker login ghcr.io -u Caibility1 --password-stdin
-Remove-Item Env:CR_PAT
+.\setup_new_machine.cmd `
+  -Release <RELEASE> `
+  -FsLicenseSource D:\path\to\license.txt
 ```
 
-Run setup from the repository root:
+The launcher applies `-ExecutionPolicy Bypass` only to this child process. It does not modify the machine or user policy. The equivalent manual session is:
 
 ```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
 .\setup_new_machine.ps1 `
   -Release <RELEASE> `
   -FsLicenseSource D:\path\to\license.txt
 ```
 
+If `MachinePolicy` or `UserPolicy` still blocks the process, inspect `Get-ExecutionPolicy -List` and ask the organization's administrator to permit or sign the deployment scripts.
+
 The script creates/updates the lightweight conda environment, pulls the image, restores the two models/Workbench/templates into `resources`, copies the license, generates local environment files, and runs Docker doctor.
 
-This top-level script is the only setup script a normal user runs. It calls `docker\install_portable.ps1` itself, creates `sMRI_pipeline_win` from `environment\windows-core.yml`, and records the resolved Python executable. It can discover common Miniforge, Miniconda, and Anaconda installations even when `conda` was not initialized in PowerShell.
-Docker Hub can be used instead of GHCR. Publish and install with the same explicit registry value:
+This top-level launcher is the only setup command a normal user runs. It starts `setup_new_machine.ps1`, which calls `docker\install_portable.ps1`, creates `sMRI_pipeline_win` from `environment\windows-core.yml`, and records the resolved Python executable. It can discover common Miniforge, Miniconda, and Anaconda installations even when `conda` was not initialized in PowerShell.
+The default registry is Docker Hub. An explicit registry can also be supplied:
 
 ```powershell
 docker login -u Caibility1
 .\docker\publish_portable_images.ps1 -Release <RELEASE> -AlsoLatest -Registry "caibility1/smri_pipeline_win"
 
-.\setup_new_machine.ps1 -Release <RELEASE> -Registry "caibility1/smri_pipeline_win" -FsLicenseSource D:\path\to\license.txt
+.\setup_new_machine.cmd -Release <RELEASE> -Registry "caibility1/smri_pipeline_win" -FsLicenseSource D:\path\to\license.txt
 ```
 
 A name without a registry hostname, such as `caibility1/smri_pipeline_win`, means Docker Hub. A name beginning with `ghcr.io/` means GitHub Container Registry; their login credentials are separate.
@@ -111,7 +116,7 @@ A name without a registry hostname, such as `caibility1/smri_pipeline_win`, mean
 On the PC that built or already loaded `smri_pipeline_win:full-portable`, reuse it without pulling or loading it again:
 
 ```powershell
-.\setup_new_machine.ps1 -UseLocalImage
+.\setup_new_machine.cmd -UseLocalImage
 ```
 
 ## 5B. Offline Installation When The Network Is Poor
@@ -135,7 +140,7 @@ Copy-Item \\wsl.localhost\Ubuntu-22.04\usr\local\freesurfer\license.txt `
 Transfer the tar and license to the new PC, then run:
 
 ```powershell
-.\setup_new_machine.ps1 `
+.\setup_new_machine.cmd `
   -OfflineArchive D:\smri_transfer\smri_pipeline_win_full.tar `
   -FsLicenseSource D:\smri_transfer\license.txt
 ```

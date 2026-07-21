@@ -6,22 +6,31 @@ This repository provides two one-stop PowerShell entrypoints for structural MRI 
 
 The portable image contains PyTorch/CUDA, nnU-Net and its Task523 model, moAR-Diff and its checkpoint, FSL, ANTs, FreeSurfer 8.1, Workbench, and the UNC infant templates.
 
-The image supplies the Linux/AI runtime and resources. The Git repository, Windows conda environment, FreeSurfer license, and MRI data remain on the host; `setup_new_machine.ps1` configures and connects them.
+The image supplies the Linux/AI runtime and resources. The Git repository, Windows conda environment, FreeSurfer license, and MRI data remain on the host; `setup_new_machine.cmd` launches the PowerShell setup and connects them.
 
 The host PC needs Windows 10/11, Docker Desktop with WSL2 system support (no separate Ubuntu distribution is required), Git, Miniforge, an NVIDIA driver for GPU stages, and a valid FreeSurfer license.
 
-After cloning the repository, start Docker Desktop and run the single top-level setup command:
+After cloning the repository, start Docker Desktop and run the single top-level setup command. Use the `.cmd` launcher on a new PC because it works even when the default PowerShell execution policy blocks local scripts:
 
 ~~~powershell
 cd D:\path\to\sMRI_pipelineV2_win
-.\setup_new_machine.ps1 -Release <RELEASE> -FsLicenseSource D:\path\to\license.txt
+.\setup_new_machine.cmd -Release <RELEASE> -FsLicenseSource D:\path\to\license.txt
 ~~~
 
 For a network-free installation:
 
 ~~~powershell
-.\setup_new_machine.ps1 -OfflineArchive D:\smri_transfer\smri_pipeline_win_full.tar -FsLicenseSource D:\smri_transfer\license.txt
+.\setup_new_machine.cmd -OfflineArchive D:\smri_transfer\smri_pipeline_win_full.tar -FsLicenseSource D:\smri_transfer\license.txt
 ~~~
+
+The launcher uses `-ExecutionPolicy Bypass` only for the setup child process; it does not change the machine or user policy. An equivalent manual PowerShell session is:
+
+~~~powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
+.\setup_new_machine.ps1 -Release <RELEASE> -FsLicenseSource D:\path\to\license.txt
+~~~
+
+If an organization enforces `MachinePolicy` or `UserPolicy`, run `Get-ExecutionPolicy -List` and ask its administrator to allow the script or provide a signed deployment package.
 
 The setup is repeatable. If it asks for a restart, a new PowerShell window, or the first Docker Desktop start, do that one action and run the same command again. No FSL/ANTs/FreeSurfer installation inside Ubuntu is required.
 
