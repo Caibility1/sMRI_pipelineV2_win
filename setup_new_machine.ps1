@@ -1,9 +1,11 @@
 param(
     [string]$Release = "latest",
+    [string]$Registry = "caibility1/smri_pipeline_win",
     [string]$OfflineArchive = "",
     [string]$FsLicenseSource = "",
     [string]$WslDistro = "Ubuntu-22.04",
-    [switch]$SkipPrerequisiteInstall
+    [switch]$SkipPrerequisiteInstall,
+    [switch]$UseLocalImage
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,6 +16,35 @@ function Test-Command([string]$Name) {
     return $null -ne (Get-Command $Name -ErrorAction SilentlyContinue)
 }
 
+function Resolve-CondaExecutable {
+    $CondaCommand = Get-Command conda.exe, conda -ErrorAction SilentlyContinue | Select-Object -First 1
+    if ($CondaCommand) {
+        if ($CondaCommand.Source) { return $CondaCommand.Source }
+        return $CondaCommand.Name
+    }
+
+    $DriveCandidates = Get-PSDrive -PSProvider FileSystem | ForEach-Object {
+        Join-Path $_.Root "anaconda3\Scripts\conda.exe"
+    }
+    $Candidates = @(
+        "$env:USERPROFILE\miniforge3\Scripts\conda.exe",
+        "$env:LOCALAPPDATA\miniforge3\Scripts\conda.exe",
+        "$env:ProgramData\miniforge3\Scripts\conda.exe",
+        "$env:USERPROFILE\miniconda3\Scripts\conda.exe",
+        "$env:LOCALAPPDATA\miniconda3\Scripts\conda.exe",
+        "$env:ProgramData\miniconda3\Scripts\conda.exe",
+        "$env:USERPROFILE\anaconda3\Scripts\conda.exe",
+        "$env:LOCALAPPDATA\anaconda3\Scripts\conda.exe",
+        "$env:ProgramData\anaconda3\Scripts\conda.exe",
+        $DriveCandidates
+    )
+    foreach ($Candidate in $Candidates) {
+        if ($Candidate -and (Test-Path -LiteralPath $Candidate)) {
+            return (Resolve-Path -LiteralPath $Candidate).Path
+        }
+    }
+    return $null
+}
 function Test-NativeProbe([scriptblock]$Probe) {
     $PreviousErrorAction = $ErrorActionPreference
     try {
@@ -55,26 +86,35 @@ if (-not (Test-NativeProbe { & docker version })) {
     Stop-AfterInstall "Docker Desktop is installed but its Linux engine is not running. Start Docker Desktop."
 }
 
-if (-not (Test-Command "conda")) {
+$Conda = Resolve-CondaExecutable
+if (-not $Conda) {
     if ($SkipPrerequisiteInstall) { throw "Miniforge/conda is missing." }
     if (-not (Test-Command "winget")) { throw "Install Miniforge manually, then rerun setup." }
     & winget install --exact --id CondaForge.Miniforge3 --accept-source-agreements --accept-package-agreements
-    Stop-AfterInstall "Miniforge was installed. Open a new PowerShell window."
+    if ($LASTEXITCODE -ne 0) { throw "Miniforge installation failed." }
+    $Conda = Resolve-CondaExecutable
+    if (-not $Conda) {
+        Stop-AfterInstall "Miniforge was installed. Open a new PowerShell window."
+    }
 }
+Write-Host "CONDA=$Conda"
 
 $CoreEnvironment = Join-Path $RepoRoot "environment\windows-core.yml"
-$CondaInfo = conda env list --json | ConvertFrom-Json
+$CondaInfo = & $Conda env list --json | ConvertFrom-Json
 $ExistingEnvironment = $CondaInfo.envs | Where-Object { (Split-Path -Leaf $_) -eq $EnvironmentName }
 if ($ExistingEnvironment) {
     Write-Host "Updating conda environment: $EnvironmentName"
-    & conda env update -n $EnvironmentName -f $CoreEnvironment --prune
+    & $Conda env update -n $EnvironmentName -f $CoreEnvironment --prune
 } else {
     Write-Host "Creating conda environment: $EnvironmentName"
-    & conda env create -f $CoreEnvironment
+    & $Conda env create -f $CoreEnvironment
 }
 if ($LASTEXITCODE -ne 0) { throw "Conda environment installation failed." }
 
-$Python = (& conda run -n $EnvironmentName python -c "import sys; print(sys.executable)").Trim()
+$CondaInfo = & $Conda env list --json | ConvertFrom-Json
+$EnvironmentPath = @($CondaInfo.envs | Where-Object { (Split-Path -Leaf $_) -eq $EnvironmentName } | Select-Object -First 1)[0]
+if (-not $EnvironmentPath) { throw "Cannot resolve conda environment: $EnvironmentName" }
+$Python = Join-Path $EnvironmentPath "python.exe"
 if (-not (Test-Path -LiteralPath $Python)) { throw "Cannot resolve Python in $EnvironmentName" }
 
 $WindowsEnv = Join-Path $RepoRoot "environment\windows_env.local.ps1"
@@ -88,10 +128,12 @@ $WindowsEnvText = @"
 
 $InstallArgs = @{
     Release = $Release
+    Registry = $Registry
     WslDistro = $WslDistro
 }
 if ($OfflineArchive) { $InstallArgs.OfflineArchive = $OfflineArchive }
 if ($FsLicenseSource) { $InstallArgs.FsLicenseSource = $FsLicenseSource }
+if ($UseLocalImage) { $InstallArgs.UseLocalImage = $true }
 & (Join-Path $RepoRoot "docker\install_portable.ps1") @InstallArgs
 if ($LASTEXITCODE -ne 0) { throw "Portable Docker installation failed." }
 

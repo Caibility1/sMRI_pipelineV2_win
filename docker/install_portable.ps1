@@ -1,11 +1,12 @@
 param(
     [string]$Release = "latest",
-    [string]$Registry = "ghcr.io/caibility1/smri_pipeline_win",
+    [string]$Registry = "caibility1/smri_pipeline_win",
     [string]$OfflineArchive = "",
     [string]$FsLicenseSource = "",
     [string]$WslDistro = "Ubuntu-22.04",
     [bool]$MaterializeResources = $true,
-    [switch]$ForceResources
+    [switch]$ForceResources,
+    [switch]$UseLocalImage
 )
 
 $ErrorActionPreference = "Stop"
@@ -43,7 +44,12 @@ function Convert-ToWslPath([string]$WindowsPath) {
 
 if (-not (Test-NativeProbe { & docker version })) { throw "Docker Desktop is not running." }
 
-if ($OfflineArchive) {
+if ($UseLocalImage) {
+    if (-not (Test-NativeProbe { & docker image inspect $LocalImage })) {
+        throw "Local portable image does not exist: $LocalImage"
+    }
+    Write-Host "Using existing local image $LocalImage"
+} elseif ($OfflineArchive) {
     $Archive = (Resolve-Path -LiteralPath $OfflineArchive).ProviderPath
     Write-Host "Loading portable image from $Archive"
     Invoke-Docker @("load", "--input", $Archive)
@@ -122,7 +128,7 @@ $EnvText = @"
 $Manifest = [ordered]@{
     installed_at = (Get-Date).ToString("o")
     release = $Release
-    source_image = if ($OfflineArchive) { $OfflineArchive } else { $RemoteImage }
+    source_image = if ($UseLocalImage) { $LocalImage } elseif ($OfflineArchive) { $OfflineArchive } else { $RemoteImage }
     local_image = $LocalImage
     bundled_resources = $true
 }

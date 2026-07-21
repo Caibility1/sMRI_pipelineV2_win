@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$Release,
-    [string]$Registry = "ghcr.io/caibility1/smri_pipeline_win",
+    [string]$Registry = "caibility1/smri_pipeline_win",
     [string]$LocalImage = "smri_pipeline_win:full-portable",
     [switch]$AlsoLatest,
     [switch]$SkipPush,
@@ -23,7 +23,7 @@ if (-not $SkipPush) {
     Write-Host "Pushing $RemoteImage"
     docker push $RemoteImage
     if ($LASTEXITCODE -ne 0) {
-        throw "docker push failed. Run: docker login ghcr.io"
+        throw "docker push failed for $RemoteImage. Log in to the selected registry first."
     }
 
     if ($AlsoLatest) {

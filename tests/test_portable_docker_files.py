@@ -68,15 +68,18 @@ class PortableDockerFileTests(unittest.TestCase):
         self.assertNotIn("license.txt", text)
 
 
-    def test_publish_script_uses_versioned_ghcr_tags(self):
+    def test_publish_script_uses_versioned_docker_hub_tags(self):
         text = self.read("docker/publish_portable_images.ps1")
-        self.assertIn("ghcr.io/caibility1/smri_pipeline_win", text)
+        self.assertIn('[string]$Registry = "caibility1/smri_pipeline_win"', text)
         self.assertIn('"full-$Release"', text)
         self.assertIn("docker", text)
         self.assertIn("push", text)
+        self.assertNotIn("Run: docker login ghcr.io", text)
+        self.assertIn("selected registry", text)
 
     def test_install_script_pulls_materializes_and_copies_license(self):
         text = self.read("docker/install_portable.ps1")
+        self.assertIn('[string]$Registry = "caibility1/smri_pipeline_win"', text)
         self.assertIn("docker", text)
         self.assertIn("pull", text)
         self.assertIn("docker cp", text)
@@ -89,6 +92,13 @@ class PortableDockerFileTests(unittest.TestCase):
         self.assertIn("SMRI_DOCKER_BUNDLED_RESOURCES", text)
         self.assertIn("function Test-NativeProbe", text)
 
+
+    def test_install_script_can_reuse_an_existing_local_image(self):
+        text = self.read("docker/install_portable.ps1")
+        self.assertIn("[switch]$UseLocalImage", text)
+        self.assertIn("if ($UseLocalImage)", text)
+        self.assertIn("Using existing local image", text)
+        self.assertIn("docker image inspect $LocalImage", text)
 
     def test_windows_core_environment_excludes_ai_runtime(self):
         text = self.read("environment/windows-core.yml").lower()
@@ -110,6 +120,23 @@ class PortableDockerFileTests(unittest.TestCase):
         self.assertIn("Docker Desktop is installed but its Linux engine is not running", text)
         self.assertIn("--no-distribution", text)
         self.assertNotIn("wsl.exe -d $WslDistro -- true", text)
+        self.assertIn("[switch]$UseLocalImage", text)
+        self.assertIn("if ($UseLocalImage) { $InstallArgs.UseLocalImage = $true }", text)
+        self.assertIn("[string]$Registry", text)
+        self.assertIn('[string]$Registry = "caibility1/smri_pipeline_win"', text)
+        self.assertIn("Registry = $Registry", text)
+
+    def test_new_machine_setup_finds_conda_without_shell_initialization(self):
+        text = self.read("setup_new_machine.ps1")
+        self.assertIn("function Resolve-CondaExecutable", text)
+        self.assertIn("miniforge3\\Scripts\\conda.exe", text)
+        self.assertIn("miniconda3\\Scripts\\conda.exe", text)
+        self.assertIn("anaconda3\\Scripts\\conda.exe", text)
+        self.assertIn("$Conda = Resolve-CondaExecutable", text)
+        self.assertIn("& $Conda env list --json", text)
+        self.assertIn("$EnvironmentPath =", text)
+        self.assertIn("$Python = Join-Path $EnvironmentPath \"python.exe\"", text)
+        self.assertNotIn("& $Conda run -n $EnvironmentName python", text)
 
     def test_bin_entrypoints_auto_load_local_environment(self):
         for relative in ("bin/smri_preprocessing.ps1", "bin/smri_presurf_recon.ps1"):

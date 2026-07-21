@@ -6,9 +6,11 @@ This repository provides two one-stop PowerShell entrypoints for structural MRI 
 
 The portable image contains PyTorch/CUDA, nnU-Net and its Task523 model, moAR-Diff and its checkpoint, FSL, ANTs, FreeSurfer 8.1, Workbench, and the UNC infant templates.
 
+The image supplies the Linux/AI runtime and resources. The Git repository, Windows conda environment, FreeSurfer license, and MRI data remain on the host; `setup_new_machine.ps1` configures and connects them.
+
 The host PC needs Windows 10/11, Docker Desktop with WSL2 system support (no separate Ubuntu distribution is required), Git, Miniforge, an NVIDIA driver for GPU stages, and a valid FreeSurfer license.
 
-After cloning the repository:
+After cloning the repository, start Docker Desktop and run the single top-level setup command:
 
 ~~~powershell
 cd D:\path\to\sMRI_pipelineV2_win

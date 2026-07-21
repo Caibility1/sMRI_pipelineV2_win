@@ -1,6 +1,8 @@
-﻿# Windows/WSL2 Deployment Tutorial
+# Windows/WSL2 Deployment Tutorial
 
-This guide assumes the reader starts from a normal Windows PC and has not used WSL2, conda, or Docker before. It avoids machine-specific paths. Replace placeholders such as `<PIPELINE_DIR>` and `<BATCH_DIR>` with your own folders.`r`n`r`nFor a full beginner path with module-by-module installation, Docker choices, and external age-only data examples, start with `docs/new_machine_tutorial.md`.
+This guide assumes the reader starts from a normal Windows PC and has not used WSL2, conda, or Docker before. It avoids machine-specific paths. Replace placeholders such as `<PIPELINE_DIR>` and `<BATCH_DIR>` with your own folders.
+
+For a full beginner path with module-by-module installation, Docker choices, and external age-only data examples, start with `docs/new_machine_tutorial.md`.
 
 ## 0. What You Need Before Starting
 
