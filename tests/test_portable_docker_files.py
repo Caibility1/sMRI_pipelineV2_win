@@ -65,7 +65,7 @@ class PortableDockerFileTests(unittest.TestCase):
         self.assertIn("/opt/smri/models/nnUNet", text)
         self.assertIn("FSLDIR=/opt/fsl", text)
         self.assertIn("FREESURFER_HOME=/opt/freesurfer", text)
-        self.assertNotIn("license.txt", text)
+        self.assertNotIn("COPY license.txt", text)
 
 
     def test_publish_script_uses_versioned_docker_hub_tags(self):
@@ -147,11 +147,54 @@ class PortableDockerFileTests(unittest.TestCase):
         self.assertIn("$Python = Join-Path $EnvironmentPath \"python.exe\"", text)
         self.assertNotIn("& $Conda run -n $EnvironmentName python", text)
 
-    def test_bin_entrypoints_auto_load_local_environment(self):
+    def test_bin_entrypoints_are_runtime_only(self):
         for relative in ("bin/smri_preprocessing.ps1", "bin/smri_presurf_recon.ps1"):
             text = self.read(relative)
-            self.assertIn("windows_env.local.ps1", text)
-            self.assertIn("docker_env.local.ps1", text)
+            self.assertIn("docker", text.lower())
+            self.assertIn("SMRI_RUNTIME_IMAGE", text)
+            self.assertNotIn("windows_env.local.ps1", text)
+            self.assertNotIn("SMRI_PYTHON", text)
+
+    def test_full_image_bundles_runtime_code_and_entrypoint(self):
+        text = self.read("docker/Dockerfile.smri-full-portable")
+        self.assertIn("COPY scripts /opt/smri/pipeline/scripts", text)
+        self.assertIn("COPY docker/runtime_entrypoint.sh", text)
+        self.assertIn("ENTRYPOINT", text)
+        self.assertIn("SMRI_CONTAINER_RUNTIME=1", text)
+
+    def test_container_runtime_replaces_nested_docker_jobs(self):
+        text = self.read("scripts/jobs/smri_container_runtime.py")
+        self.assertIn("def run_native_job", text)
+        self.assertIn("module.run_docker_job = run_native_job", text)
+        self.assertIn("container-native", text)
+
+    def test_cmd_companions_launch_powershell_with_bypass(self):
+        for relative in ("bin/smri_preprocessing.cmd", "bin/smri_presurf_recon.cmd"):
+            text = self.read(relative)
+            self.assertIn("ExecutionPolicy Bypass", text)
+            self.assertIn("%*", text)
+            self.assertIn("exit /b %ERRORLEVEL%", text)
+    def test_runtime_maintenance_scripts_use_readable_tags(self):
+        build = self.read("docker/build_runtime_image.ps1")
+        publish = self.read("docker/publish_runtime_image.ps1")
+        doctor = self.read("docker/doctor_runtime.ps1")
+        self.assertIn("smri_pipeline_win:runtime-test", build)
+        self.assertIn("runtime-v2-2026-07-22", publish)
+        self.assertIn("runtime-v2-2026-07-22", doctor)
+        self.assertIn("docker push", publish)
+        self.assertIn('"doctor"', doctor)
+
+    def test_runtime_build_accepts_external_resource_root(self):
+        text = self.read("docker/build_runtime_image.ps1")
+        self.assertIn("$ResourceRoot", text)
+        for name in ("nnunet", "moardiff", "workbench", "templates"):
+            self.assertIn(f'"--build-context", "{name}=', text)
+
+
+    def test_runtime_launcher_preserves_single_license_candidate_as_array(self):
+        text = self.read("scripts/steps/smri_docker_launcher.ps1")
+        self.assertIn("$LicenseCandidates = @(@(", text)
+
 
 
     def test_doctor_checks_bundled_resources_and_tools(self):

@@ -3,19 +3,10 @@ param(
     [string[]]$ArgsFromUser
 )
 
-$ErrorActionPreference = "Stop"
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PipelineDir = Split-Path -Parent $ScriptDir
-$WindowsEnv = Join-Path $PipelineDir "environment\windows_env.local.ps1"
-$DockerEnv = Join-Path $PipelineDir "environment\docker_env.local.ps1"
-if (Test-Path -LiteralPath $WindowsEnv) { . $WindowsEnv }
-if (Test-Path -LiteralPath $DockerEnv) { . $DockerEnv }
-$Python = if ($env:SMRI_PYTHON) { $env:SMRI_PYTHON } else { "python" }
-$Entry = Join-Path $PipelineDir "scripts\jobs\smri_presurf_recon_win.py"
+$Launcher = Join-Path $PipelineDir "scripts\steps\smri_docker_launcher.ps1"
+$Image = if ($env:SMRI_RUNTIME_IMAGE) { $env:SMRI_RUNTIME_IMAGE } else { "caibility1/smri_pipeline_win:runtime-v2-2026-07-22" }
 
-Write-Host "=== sMRI presurf/recon Windows entrypoint ==="
-Write-Host "PIPELINE_DIR=$PipelineDir"
-Write-Host "PYTHON=$Python"
-
-& $Python $Entry @ArgsFromUser
+& $Launcher -Command postprocess -Image $Image @ArgsFromUser
 exit $LASTEXITCODE

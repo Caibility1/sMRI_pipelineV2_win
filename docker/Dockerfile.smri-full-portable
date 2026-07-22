@@ -48,7 +48,24 @@ RUN python -c "import torch; print(torch.__version__, torch.version.cuda)" \
     && test -d "$SMRI_TEMPLATE_DIR"
 
 LABEL org.opencontainers.image.source="https://github.com/Caibility1/sMRI_pipelineV2_win" \
-      org.opencontainers.image.title="sMRI Pipeline Windows all-in-one portable runtime"
+      org.opencontainers.image.title="sMRI Pipeline Windows all-in-one container runtime" \
+      org.opencontainers.image.version="runtime-v2-2026-07-22"
 
-WORKDIR /pipeline
-CMD ["/bin/bash"]
+# Keep code in the last layers so source updates do not rebuild the large tools and model layers.
+COPY scripts /opt/smri/pipeline/scripts
+COPY bin /opt/smri/pipeline/bin
+COPY docker/container_env.sh /opt/smri/pipeline/docker/container_env.sh
+COPY docker/runtime_entrypoint.sh /opt/smri/pipeline/docker/runtime_entrypoint.sh
+
+RUN chmod +x /opt/smri/pipeline/docker/runtime_entrypoint.sh \
+    && find /opt/smri/pipeline/scripts -type f \( -name '*.sh' -o -name '*.py' \) \
+        -exec chmod +x {} +
+
+ENV PIPELINE_DIR=/opt/smri/pipeline \
+    PYTHON=/opt/micromamba/envs/sMRI_pipeline_win/bin/python \
+    SMRI_CONTAINER_RUNTIME=1 \
+    FS_LICENSE=/licenses/freesurfer/license.txt
+
+WORKDIR /data
+ENTRYPOINT ["/opt/smri/pipeline/docker/runtime_entrypoint.sh"]
+CMD ["help"]

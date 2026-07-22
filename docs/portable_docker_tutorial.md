@@ -1,303 +1,188 @@
-# Portable Docker Deployment Tutorial
+# Win 单镜像从零部署教程
 
-This is the recommended deployment path for a new Windows PC. It uses one all-in-one Linux image for AI and neuroimaging tools, while the two PowerShell entrypoints remain the user interface.
+目标是让新电脑在安装 Docker Desktop 后，不再手动配置 Windows Conda、Ubuntu、FSL、ANTs、FreeSurfer、Workbench、nnU-Net 或 MoAR-Diff。核心环境、模型、模板和代码均从 Docker Hub 下载。
 
-## 1. What Is And Is Not Installed
+## 1. 主机仍需准备什么
 
-The portable image contains:
+必须：
 
-- CUDA/PyTorch runtime
-- nnU-Net v1 and the Task523 model
-- moAR-Diff and its checkpoint
-- FSL 6.0.7.22
-- ANTs
-- FreeSurfer 8.1 with `infant_recon_all`
-- Connectome Workbench
-- UNC infant templates
+- Windows 10/11 64 位，BIOS/UEFI 虚拟化已开启。
+- WSL2 系统能力。
+- Docker Desktop，使用 WSL2 backend，并处于 Engine running 状态。
+- FreeSurfer `license.txt`。
 
-The new PC still needs:
+按需：
 
-- Windows 10/11
-- WSL2 system support for Docker Desktop; a separate Ubuntu user distribution is not required
-- Docker Desktop
-- Git
-- Miniforge/conda for lightweight Windows steps
-- NVIDIA Windows driver for GPU stages
-- a valid FreeSurfer license
+- Git：推荐，用于获得两个短入口和文档；不用 Git 也能直接 `docker run`。
+- NVIDIA Windows 驱动：nnU-Net 与 MoAR-Diff 的 GPU 阶段需要。Docker 镜像自带 CUDA/PyTorch 用户态库，但不能替代主机驱动。
 
-FSL, ANTs, and FreeSurfer do not need to be installed inside the user's Ubuntu distribution when every Linux backend is `docker`. Docker Desktop uses WSL2 internally, but the tools live inside the image.
+不需要：Windows Conda/Miniforge、单独 Ubuntu、WSL 内 FSL/ANTs/FreeSurfer、Workbench 或模型下载。
 
-The image deliberately does not contain the Git working tree, MRI data, the FreeSurfer license, the Windows conda environment, Docker Desktop, or the NVIDIA Windows driver. The repository and batch directory are mounted from Windows at runtime. This lets ordinary code updates use `git pull` without rebuilding the 90+ GB image and keeps patient data outside Docker image layers.
+## 2. 空间与硬件
 
-## 2. Disk Space
+- Win runtime 镜像实际内容约 36.4 GB；Docker Desktop 可能显示约 90 GB 的虚拟大小。
+- 下载、解包和缓存期间，Docker 所在磁盘建议至少空出 100 GB。
+- 原始数据、预处理中间结果和 FreeSurfer 输出另计。10 名受试者建议数据盘再留 150 GB 以上。
+- Docker Desktop 的虚拟磁盘应迁移到空间充足的数据盘后再 pull 大镜像。
+- 推荐 32 GB 内存以上；16 GB 只能低并发尝试。FreeSurfer 设 `--recon-jobs 1`。
+- nnU-Net/MoAR-Diff 推荐 NVIDIA 8 GB 以上显存。低显存显卡可能 OOM；CPU 模式通常不适合课堂或批量运行。
 
-Reserve at least 180 GB of free space before installation. The current all-in-one image reports about 91 GB logical size, and Docker also needs temporary pull/load space plus the repository resources restored from the image. Reserve 250 GB or more when several recon outputs will remain on the machine. Place Docker Desktop's virtual disk on a sufficiently large data drive before pulling or loading the image.
+## 3. 开启 WSL2
 
-## 3. Install Windows Prerequisites
-
-Open PowerShell as Administrator:
+管理员 PowerShell：
 
 ```powershell
-wsl.exe --install --no-distribution
-winget install --exact --id Docker.DockerDesktop --accept-source-agreements --accept-package-agreements
-winget install --exact --id Git.Git --accept-source-agreements --accept-package-agreements
-winget install --exact --id CondaForge.Miniforge3 --accept-source-agreements --accept-package-agreements
+wsl --install --no-distribution
 ```
 
-Restart Windows if requested. Start Docker Desktop once and wait until its Linux engine is running.
+按提示重启。这里需要的是 WSL2 系统能力，不要求安装 Ubuntu。Docker Desktop 自己管理 Linux VM。
 
-Verify:
+## 4. 安装并启动 Docker Desktop
+
+安装 Docker Desktop，选择 WSL2 backend，启动后等待 Engine running。在 Windows PowerShell 检查：
 
 ```powershell
-wsl.exe --status
 docker version
-git --version
-conda --version
 ```
 
-For the recommended Docker mode, do not install FSL, ANTs, FreeSurfer, or Workbench into Ubuntu. Install an Ubuntu distribution only when deliberately using the advanced `wsl` backend or preparing a new image from local WSL tools.
+必须同时显示 Client 和 Server。Docker 命令在 Windows PowerShell/CMD 运行，不是在 Docker Desktop 的 Images 页面点 Run。
 
-## 4. Clone Or Update The Code
-
-Fresh clone:
+## 5. 获取 Git 入口和镜像
 
 ```powershell
-cd D:\your_install_parent
-git clone https://github.com/Caibility1/sMRI_pipelineV2_win.git
-cd sMRI_pipelineV2_win
+git clone https://github.com/Caibility1/sMRI_pipelineV2_win.git D:\sMRI_pipelineV2_win
+cd D:\sMRI_pipelineV2_win
+docker pull caibility1/smri_pipeline_win:runtime-v2-2026-07-22
 ```
 
-Existing clone:
+网络出现 `EOF` 时，统一 Docker Desktop 与系统代理/VPN设置，重新执行同一条 pull。Docker 会复用已经下载完成的层；不要先 prune。
+
+正常流程不运行 `setup_new_machine.ps1`。旧 setup 会建立宿主 Conda 和分体环境，只为历史兼容保留。
+
+## 6. FreeSurfer License
+
+把自己的 `license.txt` 放在稳定位置，例如：
 
 ```powershell
-cd D:\path\to\sMRI_pipelineV2_win
-git pull
+$env:SMRI_FS_LICENSE = "D:\smri_install\license.txt"
 ```
 
-Large models and Linux programs are intentionally not stored in Git history.
-
-## 5A. Online Image Installation Through Docker Hub
-
-Start Docker Desktop and wait until its Linux engine reports that it is running. The release image is public, so a Docker Hub login is normally not required for downloading it.
-
-Run setup from the repository root. Use the `.cmd` launcher on a new PC so that a restrictive default PowerShell execution policy cannot block the setup script before it starts:
+此设置只在当前 PowerShell 窗口有效。永久记录到当前用户：
 
 ```powershell
-.\setup_new_machine.cmd `
-  -Release <RELEASE> `
-  -FsLicenseSource D:\path\to\license.txt
+[Environment]::SetEnvironmentVariable(
+  "SMRI_FS_LICENSE",
+  "D:\smri_install\license.txt",
+  "User"
+)
 ```
 
-The launcher applies `-ExecutionPolicy Bypass` only to this child process. It does not modify the machine or user policy. The equivalent manual session is:
+公开镜像不内置个人 license，两个入口会把该文件只读挂载到容器。
+
+## 7. Doctor
 
 ```powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
-.\setup_new_machine.ps1 `
-  -Release <RELEASE> `
-  -FsLicenseSource D:\path\to\license.txt
+cd D:\sMRI_pipelineV2_win
+.\docker\doctor_runtime.ps1 `
+  -Image caibility1/smri_pipeline_win:runtime-v2-2026-07-22 `
+  -LicensePath D:\smri_install\license.txt
 ```
 
-If `MachinePolicy` or `UserPolicy` still blocks the process, inspect `Get-ExecutionPolicy -List` and ask the organization's administrator to permit or sign the deployment scripts.
+应看到 Python、PyTorch、FSL `flirt`、ANTs `N4BiasFieldCorrection`、Workbench、FreeSurfer、nnU-Net 模型、MoAR-Diff checkpoint、模板和核心代码均为 `[OK]`。
 
-The script creates/updates the lightweight conda environment, pulls the image, restores the two models/Workbench/templates into `resources`, copies the license, generates local environment files, and runs Docker doctor.
-
-This top-level launcher is the only setup command a normal user runs. It starts `setup_new_machine.ps1`, which calls `docker\install_portable.ps1`, creates `sMRI_pipeline_win` from `environment\windows-core.yml`, and records the resolved Python executable. It can discover common Miniforge, Miniconda, and Anaconda installations even when `conda` was not initialized in PowerShell.
-The default registry is Docker Hub. An explicit registry can also be supplied:
+GPU 另检：
 
 ```powershell
-docker login -u Caibility1
-.\docker\publish_portable_images.ps1 -Release <RELEASE> -AlsoLatest -Registry "caibility1/smri_pipeline_win"
-
-.\setup_new_machine.cmd -Release <RELEASE> -Registry "caibility1/smri_pipeline_win" -FsLicenseSource D:\path\to\license.txt
+docker run --rm --gpus all nvidia/cuda:12.1.1-base-ubuntu22.04 nvidia-smi
 ```
 
-A name without a registry hostname, such as `caibility1/smri_pipeline_win`, means Docker Hub. A name beginning with `ghcr.io/` means GitHub Container Registry; their login credentials are separate.
-
-On the PC that built or already loaded `smri_pipeline_win:full-portable`, reuse it without pulling or loading it again:
-
-```powershell
-.\setup_new_machine.cmd -UseLocalImage
-```
-
-## 5B. Offline Installation When The Network Is Poor
-
-On the prepared source PC, create an archive:
-
-```powershell
-.\docker\publish_portable_images.ps1 `
-  -Release <RELEASE> `
-  -SkipPush `
-  -OfflineArchive D:\smri_transfer\smri_pipeline_win_full.tar
-```
-
-Also copy the code repository or clone it separately, and copy the FreeSurfer license:
-
-```powershell
-Copy-Item \\wsl.localhost\Ubuntu-22.04\usr\local\freesurfer\license.txt `
-  D:\smri_transfer\license.txt
-```
-
-Transfer the tar and license to the new PC, then run:
-
-```powershell
-.\setup_new_machine.cmd `
-  -OfflineArchive D:\smri_transfer\smri_pipeline_win_full.tar `
-  -FsLicenseSource D:\smri_transfer\license.txt
-```
-
-The current full archive is about 36.4 GB; future releases may differ. Use a sufficiently large NTFS/exFAT drive or a reliable local network share, and verify the provided SHA-256 checksum after transfer.
-
-## 6. Environment Files
-
-Setup generates:
+## 8. 准备批次
 
 ```text
-environment\windows_env.local.ps1
-environment\docker_env.local.ps1
+D:\data\batch001\
+  1_T2toT1\
+    data\
+      001_180mo\
+        T1.nii.gz
+        T2.nii.gz   optional
 ```
 
-They define the Windows Python path, image name, bundled-resource mode, and Linux tool paths. Both `bin/*.ps1` entrypoints load these files automatically. Users do not need to remember nnU-Net's three variables or manually source FSL/FreeSurfer. Do not edit the generated files unless troubleshooting a nonstandard installation.
+也可用 Excel 提供年龄。ID 列可叫 `ID`、`subject_id`、`participant_id` 等；年龄列支持 `age`、`month`、`months`、`mo`、`age_months` 等。Excel 把 `001` 读成数字 `1` 时，匹配逻辑可与文件夹 `001` 对齐，但仍建议把 ID 列设为文本。
 
-The image appears in Docker Desktop before it is uploaded anywhere. Open **Images**, clear filters, search for repository `smri_pipeline_win`, and look for tag `full-portable`. From PowerShell, the authoritative check is:
+## 9. 运行 Preprocessing
+
+陌生数据、有年龄表、无视觉 QC：
 
 ```powershell
-docker context show
-docker image inspect smri_pipeline_win:full-portable
-docker image ls --filter reference="smri_pipeline_win:*"
-```
-
-Use the `desktop-linux` context. Publishing to GHCR is required only so another PC can pull the image; it is not required for Docker Desktop to display a locally built or loaded image.
-
-## 7. Verify The Installation
-
-```powershell
-.\docker\doctor.ps1 -PipelineDir (Resolve-Path .)
-```
-
-The doctor should find:
-
-```text
-torch / CUDA
-nnU-Net Task523 resources
-moAR-Diff checkpoint
-flirt
-N4BiasFieldCorrection
-wb_command
-recon-all
-mri_convert
-infant_recon_all
-FreeSurfer license
-UNC templates
-```
-
-Do not start a full batch until required checks pass.
-
-## 8. Prepare Data
-
-Data stays outside Docker. Minimum preprocessing input:
-
-```text
-<BATCH_DIR>\1_T2toT1\data\<subject_id>\T1.nii.gz
-<BATCH_DIR>\1_T2toT1\data\<subject_id>\T2.nii.gz   optional
-```
-
-Use an absolute Windows batch path such as `D:\smri_data\batch001`. The launcher mounts it at `/batch` inside the container.
-
-For subject folders `001` and `003`, the expected layout is:
-
-```text
-<BATCH_DIR>\1_T2toT1\data\001\T1.nii.gz
-<BATCH_DIR>\1_T2toT1\data\003\T1.nii.gz
-<BATCH_DIR>\info.xlsx
-```
-
-The NIfTI standardizer also accepts one `.nii.gz` file per modality whose name starts with `T1` or `T2`; unrelated JSON files are preserved. A generic Excel workbook may use ID columns such as `ID`, `subject_id`, or `participant_id`, and age columns such as `age`, `month`, `months`, `mo`, `age_months`, or the supported Chinese aliases. Numeric Excel IDs `1` and `3` match folder IDs `001` and `003`; nevertheless, formatting the Excel ID column as text is recommended so the original identifiers remain visible.
-
-Preflight the real batch before submission:
-
-```powershell
-$Batch = "D:\path\to\batch"
-Get-ChildItem "$Batch\1_T2toT1\data" -Directory | Select-Object Name
-Get-ChildItem "$Batch\1_T2toT1\data\001","$Batch\1_T2toT1\data\003" -File | Select-Object DirectoryName,Name
-Test-Path "$Batch\info.xlsx"
-```
-
-## 9. Run Preprocessing With The Full Image
-
-External age table without visual QC:
-
-```powershell
-.\bin\smri_preprocessing.ps1 D:\smri_data\batch001 `
+.\bin\smri_preprocessing.cmd D:\data\batch001 `
   --submit `
-  --qc-excel D:\smri_data\age.xlsx `
+  --qc-excel D:\data\age.xlsx `
   --age-source excel `
   --qc-mode all-pass
 ```
 
-Folder names already contain age:
+文件夹已带年龄：
 
 ```powershell
-.\bin\smri_preprocessing.ps1 D:\smri_data\batch001 `
-  --submit `
-  --age-source folder `
-  --qc-mode all-pass
+.\bin\smri_preprocessing.cmd D:\data\batch001 `
+  --submit --age-source folder --qc-mode all-pass
 ```
 
-## 10. Segmentation Boundary
+已有配套 QC 表时使用 `--qc-mode visual`。每个大步骤会打印 `START/COMPLETE` 和日志路径。
 
-The current workflow does not automatically generate `6_seg`. Before recon, each subject needs:
+## 10. 分割边界与 Postprocessing
+
+当前研究流程需要外部分割结果：
 
 ```text
-<BATCH_DIR>\6_seg\<subject_id>\brain.nii.gz
-<BATCH_DIR>\6_seg\<subject_id>\dk-struct.nii.gz
-<BATCH_DIR>\6_seg\<subject_id>\tissue.nii.gz
+<BATCH_DIR>\6_seg\<ID>\brain.nii.gz
+<BATCH_DIR>\6_seg\<ID>\dk-struct.nii.gz
+<BATCH_DIR>\6_seg\<ID>\tissue.nii.gz
 ```
 
-The existing `ibeatgroup/ibeat_v2:release210` image can be transferred separately, but it is not yet wired into the two one-stop entrypoints.
-
-## 11. Run Presurf And Recon
-
-Start with one concurrent reconstruction:
+准备后：
 
 ```powershell
-.\bin\smri_presurf_recon.ps1 D:\smri_data\batch001 `
-  --submit `
-  --recon-jobs 1
+.\bin\smri_presurf_recon.cmd D:\data\batch001 --submit --recon-jobs 1
 ```
 
-Increase `--recon-jobs` only after checking RAM, CPU, and disk usage.
+该命令同步等待，并写入 report、summary 和每例 recon 日志。再次运行会根据关键输出断点续跑。
 
-## 12. Logs And Reports
+## 11. 不使用 Git 的直接命令
 
-```text
-<BATCH_DIR>\logs\preprocessing_report.md
-<BATCH_DIR>\logs\postprocessing_report.md
-<BATCH_DIR>\manifests\windows_status.csv
-<BATCH_DIR>\manifests\40_recon_summary.csv
-<BATCH_DIR>\7_presurf\<subject_id>\log\recon.log
-```
-
-## 13. Publishing A New Release
-
-Ordinary Python/bash/PowerShell code changes require a Git push but not an image rebuild because the repository is mounted at `/pipeline`.
-
-Rebuild the full image when models, templates, Workbench, FSL, ANTs, FreeSurfer, CUDA, PyTorch, or image dependencies change:
+镜像已经有核心代码。下面可直接运行 preprocessing：
 
 ```powershell
-.\docker\build_portable_images.ps1
+docker run --rm --gpus all `
+  --mount type=bind,source=D:\data\batch001,target=/data `
+  caibility1/smri_pipeline_win:runtime-v2-2026-07-22 `
+  preprocess /data --submit --age-source folder --qc-mode all-pass
 ```
 
-Authenticate with a classic PAT containing `write:packages`, then publish:
+有 Excel 时再只读挂载：
 
 ```powershell
-.\docker\publish_portable_images.ps1 `
-  -Release <RELEASE> `
-  -AlsoLatest
+--mount type=bind,source=D:\data\age.xlsx,target=/inputs/age.xlsx,readonly
 ```
 
-Official references:
+并在容器参数中使用 `--qc-excel /inputs/age.xlsx`。postprocessing 还需挂载 license。日常推荐 Git 的 `.cmd` 入口，因为会自动处理这些路径。
 
-- GitHub Container Registry: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry
-- Docker Desktop WSL2 backend: https://docs.docker.com/desktop/features/wsl/
-- FSL Linux/WSL install: https://fsl.fmrib.ox.ac.uk/fsl/docs/install/linux.html
-- FreeSurfer install/license: https://surfer.nmr.mgh.harvard.edu/fswiki/DownloadAndInstall
+## 12. 更新规则
+
+普通用户：
+
+```powershell
+git pull --ff-only origin main
+docker pull caibility1/smri_pipeline_win:runtime-v2-2026-07-22
+```
+
+维护者修改任何镜像内代码后，必须重新 build/push 新标签。Git push 与 Docker push 是两件事；只 push Git 不会改变已发布镜像。新版本验证完成后再通知使用者切换 `SMRI_RUNTIME_IMAGE` 或更新入口默认标签。
+
+## 13. 常见错误
+
+- `docker version` 只有 Client：Docker Desktop 未启动或 engine 未就绪。
+- `failed to resolve ... EOF`：registry 网络中断，检查 Docker Desktop 代理/VPN并重试。
+- `could not select device driver ... gpu`：主机 NVIDIA 驱动、Docker GPU 支持或显卡不满足；先跑 `nvidia-smi`。
+- `FreeSurfer license`：检查 `SMRI_FS_LICENSE` 是否指向真实文件。
+- `out of memory`：降低 `--recon-jobs`/`--acpc-jobs`，关闭其他程序，并确认 Docker 内存上限。
+- 数据不在 Docker Desktop：这是正常的。数据始终在 Windows，通过 bind mount 暂时映射。

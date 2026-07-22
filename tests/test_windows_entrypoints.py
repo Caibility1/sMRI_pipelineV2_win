@@ -250,6 +250,15 @@ class CommandBuilderTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
 
 
+    def test_runtime_entrypoint_exposes_pipeline_commands(self):
+        text = (REPO / "docker/runtime_entrypoint.sh").read_text(encoding="utf-8")
+        self.assertIn("preprocess)", text)
+        self.assertIn("postprocess)", text)
+        self.assertIn("doctor)", text)
+        self.assertIn("smri_container_runtime.py", text)
+        self.assertNotIn("docker run", text)
+        self.assertNotIn("wsl.exe", text)
+
 if __name__ == "__main__":
     unittest.main()
 

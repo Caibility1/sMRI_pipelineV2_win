@@ -1,144 +1,117 @@
-# sMRI Pipeline V2 Windows/WSL2/Docker
+# sMRI Pipeline V2 Windows Container Runtime
 
-This repository provides two one-stop PowerShell entrypoints for structural MRI preprocessing and infant FreeSurfer reconstruction on Windows. The recommended deployment uses one all-in-one Docker image, while Windows runs only lightweight Python orchestration.
+这是结构像 MRI 一站式 preprocessing 与 presurf/recon 的 Windows Docker 版本。两个用户入口保持不变：
 
-## Recommended New-PC Path
+```text
+bin\smri_preprocessing.ps1
+bin\smri_presurf_recon.ps1
+```
 
-The portable image contains PyTorch/CUDA, nnU-Net and its Task523 model, moAR-Diff and its checkpoint, FSL, ANTs, FreeSurfer 8.1, Workbench, and the UNC infant templates.
+当前推荐架构是单镜像运行：Python/conda、FSL、ANTs、FreeSurfer 8.1、Workbench、nnU-Net Task523、MoAR-Diff、模型权重、模板和核心代码均在 `caibility1/smri_pipeline_win:runtime-v2-2026-07-22` 内。Windows 只负责启动 Docker 并挂载本地数据；不需要在 Windows 安装 Conda，也不需要在个人 Ubuntu 中安装 Linux 模组。
 
-The image supplies the Linux/AI runtime and resources. The Git repository, Windows conda environment, FreeSurfer license, and MRI data remain on the host; `setup_new_machine.cmd` launches the PowerShell setup and connects them.
+## Start Here
 
-The host PC needs Windows 10/11, Docker Desktop with WSL2 system support (no separate Ubuntu distribution is required), Git, Miniforge, an NVIDIA driver for GPU stages, and a valid FreeSurfer license.
+新电脑需要 Windows 10/11、WSL2 系统能力、已启动的 Docker Desktop、可选 Git、NVIDIA 驱动和 FreeSurfer `license.txt`。Git 是推荐的脚本/文档更新方式，但算法代码也已经包含在镜像里。
 
-After cloning the repository, start Docker Desktop and run the single top-level setup command. Use the `.cmd` launcher on a new PC because it works even when the default PowerShell execution policy blocks local scripts:
+```powershell
+# 在 Windows PowerShell 运行，不是在 Docker Desktop 镜像页面点 Run
+wsl --status
+docker version
 
-~~~powershell
-cd D:\path\to\sMRI_pipelineV2_win
-.\setup_new_machine.cmd -Release <RELEASE> -FsLicenseSource D:\path\to\license.txt
-~~~
+git clone https://github.com/Caibility1/sMRI_pipelineV2_win.git D:\sMRI_pipelineV2_win
+cd D:\sMRI_pipelineV2_win
+docker pull caibility1/smri_pipeline_win:runtime-v2-2026-07-22
 
-For a network-free installation:
+$env:SMRI_FS_LICENSE = "D:\smri_install\license.txt"
+.\docker\doctor_runtime.ps1 -LicensePath $env:SMRI_FS_LICENSE
+```
 
-~~~powershell
-.\setup_new_machine.cmd -OfflineArchive D:\smri_transfer\smri_pipeline_win_full.tar -FsLicenseSource D:\smri_transfer\license.txt
-~~~
+正常部署不运行 `setup_new_machine.ps1`。该文件只为旧的“宿主 Conda + 分体 Docker/WSL”架构保留。
 
-The launcher uses `-ExecutionPolicy Bypass` only for the setup child process; it does not change the machine or user policy. An equivalent manual PowerShell session is:
+完整教程：[单镜像从零部署](docs/portable_docker_tutorial.md)。参数说明：[命令参考](docs/command_reference.md)。
 
-~~~powershell
-Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass -Force
-.\setup_new_machine.ps1 -Release <RELEASE> -FsLicenseSource D:\path\to\license.txt
-~~~
+## Data
 
-If an organization enforces `MachinePolicy` or `UserPolicy`, run `Get-ExecutionPolicy -List` and ask its administrator to allow the script or provide a signed deployment package.
+MRI 数据不进入镜像。绝对路径通过 bind mount 映射，结果仍写回 Windows 批次目录。
 
-The setup is repeatable. If it asks for a restart, a new PowerShell window, or the first Docker Desktop start, do that one action and run the same command again. No FSL/ANTs/FreeSurfer installation inside Ubuntu is required.
+```text
+<BATCH_DIR>\1_T2toT1\data\<ID>\T1.nii.gz
+<BATCH_DIR>\1_T2toT1\data\<ID>\T2.nii.gz   optional
+```
 
-Full instructions: [Portable Docker deployment tutorial](docs/portable_docker_tutorial.md).
+年龄可来自 Excel，或来自 `<ID>_<age>mo` 文件夹名。陌生数据没有视觉 QC 表时可使用 `--qc-mode all-pass`。
 
-## User Commands
+## Preprocessing
 
-Preprocessing:
+```powershell
+.\bin\smri_preprocessing.cmd D:\data\batch001 `
+  --submit `
+  --qc-excel D:\data\age.xlsx `
+  --age-source excel `
+  --qc-mode all-pass
+```
 
-~~~powershell
-.\bin\smri_preprocessing.ps1 <BATCH_DIR> [options]
-~~~
+文件夹已带月龄时：
 
-Post-segmentation presurf/recon:
+```powershell
+.\bin\smri_preprocessing.cmd D:\data\batch001 `
+  --submit --age-source folder --qc-mode all-pass
+```
 
-~~~powershell
-.\bin\smri_presurf_recon.ps1 <BATCH_DIR> [options]
-~~~
+`.cmd` 入口绕过当前子进程的 PowerShell execution policy；`.ps1` 入口也可直接使用。
 
-Both entrypoints automatically load:
+## Segmentation Boundary
 
-~~~text
-environment\windows_env.local.ps1
-environment\docker_env.local.ps1
-~~~
+当前 preprocessing 到去噪结束后，不会自动生成研究流程所需的 `6_seg`。postprocessing 前需要：
 
-Users do not need to remember FSL, FreeSurfer, Workbench, template, model, or nnU-Net environment variables after setup.
+```text
+<BATCH_DIR>\6_seg\<ID>\brain.nii.gz
+<BATCH_DIR>\6_seg\<ID>\dk-struct.nii.gz
+<BATCH_DIR>\6_seg\<ID>\tissue.nii.gz
+```
 
-## Docker-First Example
+## Presurf And Recon
 
-External age table without visual QC:
+```powershell
+.\bin\smri_presurf_recon.cmd D:\data\batch001 --submit --recon-jobs 1
+```
 
-~~~powershell
-.\bin\smri_preprocessing.ps1 D:\data\batch001 --submit --qc-excel D:\data\age.xlsx --age-source excel --qc-mode all-pass
-~~~
+`--recon-jobs 1` 最稳妥；并发数增加会明显增加内存和磁盘压力。该命令同步运行，终端显示每步 `START/COMPLETE`，不是 Slurm 提交。
 
-After valid segmentation exists under 6_seg:
+## Results
 
-~~~powershell
-.\bin\smri_presurf_recon.ps1 D:\data\batch001 --submit --recon-jobs 1
-~~~
-
-## Data And Segmentation Boundary
-
-MRI data is never stored in Git or Docker images. The absolute batch directory is mounted into the container and all outputs remain on the host.
-
-Minimum preprocessing input:
-
-~~~text
-<BATCH_DIR>\1_T2toT1\data\<subject_id>\T1.nii.gz
-<BATCH_DIR>\1_T2toT1\data\<subject_id>\T2.nii.gz   optional
-~~~
-
-Recon requires externally generated segmentation:
-
-~~~text
-<BATCH_DIR>\6_seg\<subject_id>\brain.nii.gz
-<BATCH_DIR>\6_seg\<subject_id>\dk-struct.nii.gz
-<BATCH_DIR>\6_seg\<subject_id>\tissue.nii.gz
-~~~
-
-The existing iBEAT image is not yet called automatically by the two entrypoints.
-
-## Verify And Find Results
-
-Run doctor:
-
-~~~powershell
-.\docker\doctor.ps1 -PipelineDir (Resolve-Path .)
-~~~
-
-Reports and status:
-
-~~~text
+```text
 <BATCH_DIR>\logs\preprocessing_report.md
 <BATCH_DIR>\logs\postprocessing_report.md
 <BATCH_DIR>\manifests\windows_status.csv
 <BATCH_DIR>\manifests\40_recon_summary.csv
-~~~
+<BATCH_DIR>\7_presurf\<ID>\log\recon.log
+```
 
-## Publishing Or Moving The Image
+## Updates
 
-Build on a prepared source PC:
+普通用户更新：
 
-~~~powershell
-.\docker\build_portable_images.ps1
-~~~
+```powershell
+cd D:\sMRI_pipelineV2_win
+git pull --ff-only origin main
+docker pull caibility1/smri_pipeline_win:runtime-v2-2026-07-22
+```
 
-Publish to private GHCR:
+Git push 不会自动更新 Docker Hub。维护者修改镜像内代码、依赖或资源后，需要重新 build/push 一个新且可读的版本标签；新版本验证完成前不覆盖旧标签。
 
-~~~powershell
-.\docker\publish_portable_images.ps1 -Release <RELEASE> -AlsoLatest
-~~~
+维护者命令：
 
-Create an offline archive instead:
+```powershell
+.\docker\build_runtime_image.ps1
+.\docker\doctor_runtime.ps1 -Image smri_pipeline_win:runtime-test -LicensePath D:\smri_install\license.txt
+.\docker\publish_runtime_image.ps1 -Release runtime-v2-2026-07-22
+```
 
-~~~powershell
-.\docker\publish_portable_images.ps1 -Release <RELEASE> -SkipPush -OfflineArchive D:\smri_transfer\smri_pipeline_win_full.tar
-~~~
+## More Documentation
 
-The local development images remain available, but the recommended remote-deployment tag is smri_pipeline_win:full-portable.
-
-## Documentation
-
-- [Portable Docker deployment tutorial](docs/portable_docker_tutorial.md)
-- [Command reference](docs/command_reference.md)
-- [Full test runbook](docs/full_test_runbook.md)
-- [Hardware and performance](docs/performance_and_hardware.md)
-- [Windows/WSL2 deployment guide](docs/windows_deployment_guide.md)
-- [Docker internals and alternatives](docs/windows_docker_deployment_guide.md)
-- [Containerization strategy](docs/containerization_strategy.md)
+- [单镜像从零部署](docs/portable_docker_tutorial.md)
+- [命令参考](docs/command_reference.md)
+- [新电脑完整测试](docs/full_test_runbook.md)
+- [硬件与性能](docs/performance_and_hardware.md)
+- [容器化设计](docs/superpowers/specs/2026-07-22-win-container-native-runtime-design.md)
