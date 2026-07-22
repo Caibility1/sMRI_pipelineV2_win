@@ -1,7 +1,7 @@
 param(
     [Parameter(Mandatory = $true)]
     [string]$Release,
-    [string]$LocalImage = "smri_pipeline_demo:local",
+    [string]$LocalImage = "smri_pipeline_demo:slim-test",
     [string]$Registry = "caibility1/smri_pipeline_demo",
     [switch]$AlsoLatest
 )

@@ -5,7 +5,7 @@ usage() {
     cat <<'EOF'
 Usage: smri_reconstruction_demo.sh BATCH_DIR [options]
 
-Stages: DICOM conversion -> optional T2-to-T1 registration -> standard recon-all
+Stages: DICOM conversion -> standard FreeSurfer recon-all
 
 Options:
   --submit                 Accepted for compatibility; execution is synchronous.
@@ -14,7 +14,6 @@ Options:
   --convert-only           Alias for --dcm2niix-only.
   --select-only            Copy selected T1/T2 into data/<ID>, then stop before recon.
   --raw-dir PATH           DICOM root relative to BATCH_DIR (default: 0_rawdata).
-  --registration           Also create FSL T2-to-T1 registration/QC outputs.
   --recon-jobs N           Subjects reconstructed concurrently (default: 1).
   --recon-threads N        CPU threads used by each recon (default: 4).
   --subject ID             Convert only this subject; repeatable.
@@ -37,7 +36,6 @@ PYTHON_BIN=${PYTHON:-python3}
 RECON_JOBS=1
 RECON_THREADS=4
 SKIP_DICOM=0
-RUN_REGISTRATION=0
 CONVERT_ONLY=0
 SELECT_ONLY=0
 DICOM_ARGS=()
@@ -49,7 +47,6 @@ while [ "$#" -gt 0 ]; do
         --skip-dicom) SKIP_DICOM=1 ;;
         --dcm2niix-only|--convert-only) CONVERT_ONLY=1; DICOM_ARGS+=("--inventory-only") ;;
         --select-only) SELECT_ONLY=1 ;;
-        --registration) RUN_REGISTRATION=1 ;;
         --force-convert) DICOM_ARGS+=("--force") ;;
         --recon-jobs)
             [ "$#" -ge 2 ] || { echo "ERROR: --recon-jobs needs a value" >&2; exit 2; }
@@ -86,12 +83,12 @@ echo "RECON_JOBS=$RECON_JOBS"
 echo "RECON_THREADS=$RECON_THREADS"
 
 if [ "$SKIP_DICOM" -eq 0 ]; then
-    echo "[1/3] DICOM conversion started"
+    echo "[1/2] DICOM conversion started"
     "$PYTHON_BIN" "${PIPELINE_DIR}/scripts/steps/40_dicom_to_nifti_demo.py" \
         --batch-dir "$BATCH_DIR" "${DICOM_ARGS[@]}"
-    echo "[1/3] DICOM conversion complete"
+    echo "[1/2] DICOM conversion complete"
 else
-    echo "[1/3] DICOM conversion skipped by --skip-dicom"
+    echo "[1/2] DICOM conversion skipped by --skip-dicom"
 fi
 
 if [ "$CONVERT_ONLY" -eq 1 ]; then
@@ -105,16 +102,7 @@ if [ "$SELECT_ONLY" -eq 1 ]; then
     echo "Review ${BATCH_DIR}/1_T2toT1/data before reconstruction."
     exit 0
 fi
-
-if [ "$RUN_REGISTRATION" -eq 1 ]; then
-    echo "[2/3] Optional T2-to-T1 registration started"
-    bash "${PIPELINE_DIR}/scripts/jobs/sMRI_pipeline_step0_reg2_v2.sh" "$BATCH_DIR" "$PIPELINE_DIR"
-    echo "[2/3] Optional T2-to-T1 registration complete"
-else
-    echo "[2/3] Optional T2-to-T1 registration skipped"
-fi
-
-echo "[3/3] Standard FreeSurfer recon-all started"
+echo "[2/2] Standard FreeSurfer recon-all started"
 bash "${PIPELINE_DIR}/scripts/jobs/recon_all_demo.sh" "$BATCH_DIR" "$RECON_JOBS" "$RECON_THREADS" "${RECON_SUBJECTS[@]}"
-echo "[3/3] Standard FreeSurfer recon-all complete"
+echo "[2/2] Standard FreeSurfer recon-all complete"
 echo "=== reconstruction pipeline complete ==="

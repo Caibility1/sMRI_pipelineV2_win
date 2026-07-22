@@ -2,7 +2,7 @@
 
 ## 教学日前
 
-1. 在与课堂电脑相近的机器上完成 `setup_demo.ps1` 和 `doctor_demo.ps1`。
+1. 在与课堂电脑相近的机器上完成镜像 pull 和 `doctor_demo.ps1`。
 2. 将全部真实 DICOM 按受试者 ID 放入 `0_rawdata`。
 3. 用 `--dcm2niix-only` 转换全部序列，核对两个 manifest 并完成视觉 QC。
 4. 用 `--select-only` 标准化确认的 T1 和可选 T2。

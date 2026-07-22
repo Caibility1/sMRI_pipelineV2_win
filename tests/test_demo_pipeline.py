@@ -222,20 +222,11 @@ class T2PialPolicyTests(unittest.TestCase):
         self.assertFalse(self.mod.is_t2_pial_candidate(metadata))
 
 
-class RegistrationQcTests(unittest.TestCase):
-    def test_registration_job_uses_valid_fsl_qc_commands(self):
-        text = (ROOT / "scripts" / "jobs" / "reg2.sh").read_bytes().decode("utf-8", errors="replace")
-        self.assertIn('"${FSLDIR}/bin/pngappend"', text)
-        self.assertIn('-x 0.5 "$SAGITTAL_PNG"', text)
-        self.assertIn('-y 0.5 "$CORONAL_PNG"', text)
-        self.assertIn('-z 0.5 "$AXIAL_PNG"', text)
-        self.assertIn('-a "$OVERLAY_PNG"', text)
-
-    def test_registration_checkpoint_requires_qc_montage(self):
-        text = (
-            ROOT / "scripts" / "jobs" / "sMRI_pipeline_step0_reg2_v2.sh"
-        ).read_text(encoding="utf-8")
-        self.assertIn('combined.png', text)
+class ActiveWorkflowTests(unittest.TestCase):
+    def test_slim_controller_does_not_expose_fsl_registration(self):
+        shell = (ROOT / "scripts" / "jobs" / "smri_reconstruction_demo.sh").read_text(encoding="utf-8")
+        self.assertNotIn("--registration", shell)
+        self.assertNotIn("sMRI_pipeline_step0_reg2_v2.sh", shell)
 
 
 class StlExportTests(unittest.TestCase):
@@ -268,13 +259,19 @@ class StlExportTests(unittest.TestCase):
 
 
 class DemoEntrypointTests(unittest.TestCase):
-    def test_container_image_bundles_code_dcm2niix_and_freesurfer_base(self):
+    def test_container_image_uses_freesurfer_only_base(self):
         text = (ROOT / "docker" / "Dockerfile.smri-demo").read_text(encoding="utf-8")
-        self.assertIn("caibility1/smri_pipeline_win:full-2026-07-15", text)
+        self.assertIn("FROM freesurfer/freesurfer:8.1.0", text)
         self.assertIn("dcm2niix", text)
+        self.assertIn("COPY --from=dcm2niix-source /opt/fsl/bin/dcm2niix", text)
         self.assertIn("COPY", text)
         self.assertIn("ENTRYPOINT", text)
+        self.assertNotIn("FSLDIR", text)
 
+    def test_slim_doctor_does_not_require_fsl(self):
+
+        text = (ROOT / "docker" / "demo_entrypoint.sh").read_text(encoding="utf-8")
+        self.assertNotIn("flirt", text)
     def test_linux_controller_skips_research_only_stages(self):
         text = (ROOT / "scripts" / "jobs" / "smri_reconstruction_demo.sh").read_text(encoding="utf-8")
         self.assertIn("40_dicom_to_nifti_demo.py", text)

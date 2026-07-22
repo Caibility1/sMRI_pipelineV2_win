@@ -7,11 +7,11 @@ $ErrorActionPreference = "Stop"
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $DemoEnv = Join-Path $RepoRoot "environment\demo_env.local.ps1"
 if (Test-Path -LiteralPath $DemoEnv) { . $DemoEnv }
-$DefaultImage = if ($env:SMRI_DEMO_IMAGE) { $env:SMRI_DEMO_IMAGE } else { "caibility1/smri_pipeline_demo:latest" }
+$DefaultImage = if ($env:SMRI_DEMO_IMAGE) { $env:SMRI_DEMO_IMAGE } else { "caibility1/smri_pipeline_demo:slim-v2-2026-07-22" }
 
 function Show-Usage {
     Write-Host "Usage: .\bin\smri_reconstruction.ps1 BATCH_DIR --submit [options]"
-    Write-Host "Options: --raw-dir PATH --dcm2niix-only --select-only --convert-only --skip-dicom --registration --recon-jobs N --recon-threads N --subject ID"
+    Write-Host "Options: --raw-dir PATH --dcm2niix-only --select-only --convert-only --skip-dicom --recon-jobs N --recon-threads N --subject ID"
     Write-Host "         --t1-series N --t2-series N --force-convert"
 }
 

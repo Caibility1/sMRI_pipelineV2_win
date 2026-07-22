@@ -30,7 +30,7 @@ case "$command_name" in
         ;;
     doctor)
         failed=0
-        for tool in python3 dcm2niix flirt recon-all mris_convert; do
+        for tool in python3 dcm2niix recon-all mris_convert; do
             if path=$(command -v "$tool" 2>/dev/null); then
                 echo "[OK] $tool=$path"
             else

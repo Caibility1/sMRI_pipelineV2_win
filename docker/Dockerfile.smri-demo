@@ -1,13 +1,20 @@
-ARG BASE_IMAGE=caibility1/smri_pipeline_win:full-2026-07-15
-FROM ${BASE_IMAGE}
+FROM caibility1/smri_pipeline_win:full-2026-07-15 AS dcm2niix-source
+FROM freesurfer/freesurfer:8.1.0
 
 USER root
-RUN command -v dcm2niix && command -v recon-all && command -v mris_convert
+RUN dnf install -y python3 \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
+COPY --from=dcm2niix-source /opt/fsl/bin/dcm2niix /usr/local/bin/dcm2niix
 
 COPY . /opt/smri/pipeline_demo
 RUN chmod +x /opt/smri/pipeline_demo/docker/demo_entrypoint.sh \
     /opt/smri/pipeline_demo/scripts/jobs/*.sh \
-    /opt/smri/pipeline_demo/scripts/steps/*.py
+    /opt/smri/pipeline_demo/scripts/steps/*.py \
+    && command -v python3 \
+    && command -v dcm2niix \
+    && command -v recon-all \
+    && command -v mris_convert
 
 ENV PIPELINE_DIR=/opt/smri/pipeline_demo \
     PYTHON=python3
@@ -15,5 +22,6 @@ WORKDIR /data
 ENTRYPOINT ["/opt/smri/pipeline_demo/docker/demo_entrypoint.sh"]
 CMD ["help"]
 
-LABEL org.opencontainers.image.source="https://github.com/Caibility1/sMRI_pipeline_demo" \
-      org.opencontainers.image.title="sMRI teaching reconstruction and STL pipeline"
+LABEL org.opencontainers.image.source="https://github.com/Caibility1/sMRI_pipelineV2_win/tree/demo" \
+      org.opencontainers.image.title="sMRI teaching reconstruction slim runtime" \
+      org.opencontainers.image.version="slim-v2-2026-07-22"
