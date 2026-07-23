@@ -10,7 +10,7 @@ installing Docker Desktop, WSL2, Conda, FSL, or FreeSurfer on the student's PC.
 GitHub continues to host the `demo` branch and Docker Hub continues to host
 `caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23`. A committed
 `.devcontainer/devcontainer.json` asks Codespaces to start that exact image on
-an amd64 Linux VM with at least 8 CPUs, 32 GB RAM, and 64 GB storage.
+an amd64 Linux VM selected from the machine types available to the user.
 
 The repository remains mounted as the editable workspace. New Linux launchers
 in `bin/` call the existing job scripts from the checked-out repository, so the
@@ -32,7 +32,7 @@ confirmed.
 
 ## Storage And Compute
 
-- Required Codespace host: 8 CPUs, 32 GB RAM, 64 GB storage.
+- Recommended full-reconstruction host: 8 CPUs and 32 GB RAM; smaller machines are smoke-test only.
 - GitHub Free includes 120 core-hours and 15 GB-month storage. One 8-core
   Codespace therefore has about 15 wall-clock hours before exhausting the
   monthly compute allowance.

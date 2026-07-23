@@ -22,10 +22,15 @@ Choose `New with options` and confirm:
 
 - Branch: `demo`
 - Dev container: `sMRI teaching demo`
-- Machine: at least 8 cores, 32 GB RAM, and 64 GB storage
+- Machine: choose the largest machine that GitHub offers to your account
+
+For a complete FreeSurfer reconstruction, 8 cores and 32 GB RAM are recommended.
+A smaller machine can be created for the environment check and DICOM conversion,
+but it is a smoke test only: full `recon-all` may run very slowly or be killed for
+lack of memory.
 
 Click `Create codespace`. GitHub pulls the Demo image in the cloud. The
-student's local disk does not store the 14.4 GB image.
+student's local disk does not store the image.
 
 ## 2. Upload The License And Data
 

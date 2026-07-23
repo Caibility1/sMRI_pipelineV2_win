@@ -15,7 +15,7 @@ existing job scripts, preserving the current algorithm and checkpoint behavior.
 - Modify only the `demo` branch.
 - Do not modify reconstruction algorithms or the Windows launchers.
 - Use `caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23`.
-- Require 8 CPUs, 32 GB RAM, and 64 GB storage.
+- Do not hard-filter machine types; document 8 CPUs and 32 GB RAM as the full-reconstruction recommendation.
 - Do not upload identifiable DICOM during smoke testing.
 
 ---
@@ -66,7 +66,7 @@ existing job scripts, preserving the current algorithm and checkpoint behavior.
 - Consumes: the Codespaces deep link and Linux launchers.
 - Produces: a linear browser-only student workflow.
 
-- [ ] Document account creation, 8-core machine selection, file upload,
+- [ ] Document account creation, available-machine selection, file upload,
   `doctor`, DICOM inventory, candidate selection, reconstruction, STL download,
   quota monitoring, and Codespace deletion.
 - [ ] Add the Codespaces link to the Demo README.

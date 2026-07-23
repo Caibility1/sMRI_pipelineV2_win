@@ -2,11 +2,6 @@
   "name": "sMRI teaching demo",
   "image": "caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23",
   "overrideCommand": true,
-  "hostRequirements": {
-    "cpus": 8,
-    "memory": "32gb",
-    "storage": "64gb"
-  },
   "remoteEnv": {
     "FS_LICENSE": "${containerWorkspaceFolder}/.secrets/license.txt",
     "PIPELINE_DIR": "${containerWorkspaceFolder}",

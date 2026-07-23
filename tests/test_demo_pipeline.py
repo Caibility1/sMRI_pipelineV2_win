@@ -370,7 +370,7 @@ class DemoEntrypointTests(unittest.TestCase):
         self.assertIn("--skip-dicom", text)
 
 class CodespacesEntrypointTests(unittest.TestCase):
-    def test_codespaces_uses_published_image_and_safe_host_requirements(self):
+    def test_codespaces_uses_published_image_without_blocking_machine_filter(self):
         config = json.loads(
             (ROOT / ".devcontainer" / "devcontainer.json").read_text(encoding="utf-8")
         )
@@ -379,9 +379,7 @@ class CodespacesEntrypointTests(unittest.TestCase):
             "caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23",
         )
         self.assertTrue(config["overrideCommand"])
-        self.assertEqual(config["hostRequirements"]["cpus"], 8)
-        self.assertEqual(config["hostRequirements"]["memory"], "32gb")
-        self.assertEqual(config["hostRequirements"]["storage"], "64gb")
+        self.assertNotIn("hostRequirements", config)
 
     def test_linux_launchers_delegate_to_existing_demo_jobs(self):
         reconstruct = (ROOT / "bin" / "smri_reconstruction.sh").read_text(
@@ -407,5 +405,8 @@ class CodespacesEntrypointTests(unittest.TestCase):
         self.assertIn("--skip-dicom", text)
         self.assertIn("smri_3d_print.sh", text)
         self.assertIn("de-identified", text)
+        self.assertIn("8 cores", text)
+        self.assertIn("32 GB", text)
+        self.assertIn("smoke test only", text)
 if __name__ == "__main__":
     unittest.main()
