@@ -30,3 +30,7 @@ resources/software/**/license.txt
 
 resources/portable_release.json
 docker/.cache/
+
+# Browser-hosted Codespaces data and local license.
+cloud_data/
+.secrets/

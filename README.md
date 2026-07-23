@@ -84,3 +84,7 @@ docker login
 ```
 
 代码变化后需重新 build/push；仅 Git push 不会改变 Docker Hub 镜像。学生随后重新 `docker pull` 指定版本即可。
+
+## Browser-only Linux
+
+Students who cannot install Docker Desktop can follow the [GitHub Codespaces tutorial](docs/codespaces_student_tutorial.md). Codespaces starts the same Docker image in the cloud; only de-identified DICOM may be uploaded.

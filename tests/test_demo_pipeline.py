@@ -369,5 +369,43 @@ class DemoEntrypointTests(unittest.TestCase):
         self.assertIn("--select-only", text)
         self.assertIn("--skip-dicom", text)
 
+class CodespacesEntrypointTests(unittest.TestCase):
+    def test_codespaces_uses_published_image_and_safe_host_requirements(self):
+        config = json.loads(
+            (ROOT / ".devcontainer" / "devcontainer.json").read_text(encoding="utf-8")
+        )
+        self.assertEqual(
+            config["image"],
+            "caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23",
+        )
+        self.assertTrue(config["overrideCommand"])
+        self.assertEqual(config["hostRequirements"]["cpus"], 8)
+        self.assertEqual(config["hostRequirements"]["memory"], "32gb")
+        self.assertEqual(config["hostRequirements"]["storage"], "64gb")
+
+    def test_linux_launchers_delegate_to_existing_demo_jobs(self):
+        reconstruct = (ROOT / "bin" / "smri_reconstruction.sh").read_text(
+            encoding="utf-8"
+        )
+        stl = (ROOT / "bin" / "smri_3d_print.sh").read_text(encoding="utf-8")
+        self.assertIn("scripts/jobs/smri_reconstruction_demo.sh", reconstruct)
+        self.assertIn("scripts/jobs/export_stl_demo.sh", stl)
+        self.assertIn("PIPELINE_DIR", reconstruct)
+        self.assertIn("PIPELINE_DIR", stl)
+
+    def test_cloud_data_and_license_are_not_committed(self):
+        patterns = (ROOT / ".gitignore").read_text(encoding="utf-8").splitlines()
+        self.assertIn("cloud_data/", patterns)
+        self.assertIn(".secrets/", patterns)
+
+    def test_codespaces_tutorial_has_complete_two_stage_workflow(self):
+        text = (ROOT / "docs" / "codespaces_student_tutorial.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("--dcm2niix-only", text)
+        self.assertIn("--select-only", text)
+        self.assertIn("--skip-dicom", text)
+        self.assertIn("smri_3d_print.sh", text)
+        self.assertIn("de-identified", text)
 if __name__ == "__main__":
     unittest.main()
