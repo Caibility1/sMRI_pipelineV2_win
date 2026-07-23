@@ -8,6 +8,7 @@ logs/
 **/logs/
 **/wsl_commands/
 **/docker_commands/
+docker/.cache/
 
 # Runtime resources are mounted into containers from the project directory.
 # They are intentionally excluded from Docker build context to avoid sending

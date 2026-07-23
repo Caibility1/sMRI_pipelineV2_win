@@ -24,4 +24,4 @@ CMD ["help"]
 
 LABEL org.opencontainers.image.source="https://github.com/Caibility1/sMRI_pipelineV2_win/tree/demo" \
       org.opencontainers.image.title="sMRI teaching reconstruction slim runtime" \
-      org.opencontainers.image.version="slim-v2-2026-07-22"
+      org.opencontainers.image.version="slim-v2.1-2026-07-22"

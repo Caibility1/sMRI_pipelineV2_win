@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Decide whether a T2 sidecar describes a suitable recon-all pial input."""
 
-from __future__ import annotations
-
 import argparse
 import json
 import sys

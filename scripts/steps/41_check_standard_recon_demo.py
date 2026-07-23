@@ -20,7 +20,10 @@ def nonempty(path):
 
 
 def recon_done(subject_dir):
-    return all(nonempty(subject_dir / relative) for relative in REQUIRED_OUTPUTS)
+    error_marker = subject_dir / "scripts" / "recon-all.error"
+    return not error_marker.is_file() and all(
+        nonempty(subject_dir / relative) for relative in REQUIRED_OUTPUTS
+    )
 
 
 def failure_message(subject_dir):

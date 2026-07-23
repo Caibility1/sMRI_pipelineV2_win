@@ -33,6 +33,43 @@ if ! [[ "$RECON_JOBS" =~ ^[1-9][0-9]*$ ]] || ! [[ "$RECON_THREADS" =~ ^[1-9][0-9
     exit 2
 fi
 
+ensure_fsaverage() {
+    local fsaverage_target="${FREESURFER_HOME}/subjects/fsaverage"
+    local fsaverage_link="${SUBJECTS_DIR}/fsaverage"
+    local required_label="label/lh.BA1_exvivo.label"
+    local current_target
+
+    if [ ! -s "${fsaverage_target}/${required_label}" ]; then
+        echo "ERROR: current FreeSurfer fsaverage is incomplete: ${fsaverage_target}" >&2
+        return 2
+    fi
+
+    if [ -L "$fsaverage_link" ]; then
+        current_target=$(readlink "$fsaverage_link")
+        if [ "$current_target" != "$fsaverage_target" ]; then
+            echo "Repairing stale fsaverage link: ${current_target} -> ${fsaverage_target}"
+            rm -f "$fsaverage_link"
+        fi
+    elif [ -e "$fsaverage_link" ]; then
+        if [ ! -s "${fsaverage_link}/${required_label}" ]; then
+            echo "ERROR: ${fsaverage_link} exists but is not a compatible fsaverage directory" >&2
+            return 2
+        fi
+        return 0
+    fi
+
+    if [ ! -e "$fsaverage_link" ]; then
+        ln -s "$fsaverage_target" "$fsaverage_link"
+        echo "fsaverage link ready: ${fsaverage_link} -> ${fsaverage_target}"
+    fi
+    if [ ! -s "${fsaverage_link}/${required_label}" ]; then
+        echo "ERROR: failed to prepare a compatible fsaverage link" >&2
+        return 2
+    fi
+}
+
+ensure_fsaverage || exit $?
+
 run_subject() {
     local input_dir=$1
     local subject
@@ -56,6 +93,7 @@ run_subject() {
         return 1
     fi
     if [ -s "${SUBJECTS_DIR}/${subject}/scripts/recon-all.done" ] && \
+       [ ! -f "${SUBJECTS_DIR}/${subject}/scripts/recon-all.error" ] && \
        [ -s "${SUBJECTS_DIR}/${subject}/surf/lh.pial" ] && \
        [ -s "${SUBJECTS_DIR}/${subject}/surf/rh.pial" ] && \
        [ -s "${SUBJECTS_DIR}/${subject}/mri/brainmask.mgz" ] && \
@@ -91,6 +129,7 @@ run_subject() {
     rc=${PIPESTATUS[0]}
     if [ "$rc" -eq 0 ] && \
        [ -s "${SUBJECTS_DIR}/${subject}/scripts/recon-all.done" ] && \
+       [ ! -f "${SUBJECTS_DIR}/${subject}/scripts/recon-all.error" ] && \
        [ -s "${SUBJECTS_DIR}/${subject}/surf/lh.pial" ] && \
        [ -s "${SUBJECTS_DIR}/${subject}/surf/rh.pial" ] && \
        [ -s "${SUBJECTS_DIR}/${subject}/mri/brainmask.mgz" ] && \

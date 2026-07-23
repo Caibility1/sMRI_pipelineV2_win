@@ -19,7 +19,7 @@ DICOM -> dcm2niix -> 全部 NIfTI 候选 -> 人工选择 T1/可选 T2
 ```powershell
 git clone --branch demo https://github.com/Caibility1/sMRI_pipelineV2_win.git D:\sMRI_pipeline_demo
 cd D:\sMRI_pipeline_demo
-docker pull caibility1/smri_pipeline_demo:slim-v2-2026-07-22
+docker pull caibility1/smri_pipeline_demo:slim-v2.1-2026-07-22
 $env:SMRI_FS_LICENSE = "D:\smri_install\license.txt"
 .\docker\doctor_demo.ps1 -LicensePath $env:SMRI_FS_LICENSE
 ```
@@ -77,7 +77,7 @@ $env:SMRI_FS_LICENSE = "D:\smri_install\license.txt"
 .\docker\build_demo_image.ps1
 .\docker\doctor_demo.ps1 -Image smri_pipeline_demo:slim-test -LicensePath D:\smri_install\license.txt
 docker login
-.\docker\publish_demo_image.ps1 -Release slim-v2-2026-07-22
+.\docker\publish_demo_image.ps1 -Release slim-v2.1-2026-07-22
 ```
 
 代码变化后需重新 build/push；仅 Git push 不会改变 Docker Hub 镜像。学生随后重新 `docker pull` 指定版本即可。

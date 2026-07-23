@@ -1,5 +1,5 @@
 param(
-    [string]$Image = $(if ($env:SMRI_DEMO_IMAGE) { $env:SMRI_DEMO_IMAGE } else { "caibility1/smri_pipeline_demo:slim-v2-2026-07-22" }),
+    [string]$Image = $(if ($env:SMRI_DEMO_IMAGE) { $env:SMRI_DEMO_IMAGE } else { "caibility1/smri_pipeline_demo:slim-v2.1-2026-07-22" }),
     [string]$LicensePath = ""
 )
 

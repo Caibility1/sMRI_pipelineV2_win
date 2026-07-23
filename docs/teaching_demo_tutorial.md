@@ -52,7 +52,7 @@ docker version
 ```powershell
 git clone --branch demo https://github.com/Caibility1/sMRI_pipelineV2_win.git D:\sMRI_pipeline_demo
 cd D:\sMRI_pipeline_demo
-docker pull caibility1/smri_pipeline_demo:slim-v2-2026-07-22
+docker pull caibility1/smri_pipeline_demo:slim-v2.1-2026-07-22
 ```
 
 准备 FreeSurfer `license.txt`，例如：
@@ -79,7 +79,7 @@ docker run --rm `
   --mount type=bind,source=D:\MRI_CLASS,target=/data `
   --mount type=bind,source=D:\smri_install\license.txt,target=/licenses/freesurfer/license.txt,readonly `
   --env FS_LICENSE=/licenses/freesurfer/license.txt `
-  caibility1/smri_pipeline_demo:slim-v2-2026-07-22 doctor
+  caibility1/smri_pipeline_demo:slim-v2.1-2026-07-22 doctor
 ```
 
 后续把最后的 `doctor` 换成 `reconstruct /data ...` 或 `stl /data ...` 即可。课堂推荐 Git 入口，因为命令更短、文档与版本更容易统一。

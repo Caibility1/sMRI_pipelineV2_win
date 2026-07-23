@@ -164,6 +164,22 @@ class StandardReconTests(unittest.TestCase):
                 path.write_bytes(b"ok")
             self.assertTrue(self.mod.recon_done(subject))
 
+    def test_recon_error_marker_overrides_done_checkpoint(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            subject = Path(tmp) / "001"
+            for relative in [
+                "scripts/recon-all.done",
+                "surf/lh.pial",
+                "surf/rh.pial",
+                "mri/brainmask.mgz",
+                "mri/aseg.mgz",
+                "scripts/recon-all.error",
+            ]:
+                path = subject / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"error" if relative.endswith(".error") else b"ok")
+            self.assertFalse(self.mod.recon_done(subject))
+
     def test_partial_surface_is_not_complete(self):
         with tempfile.TemporaryDirectory() as tmp:
             subject = Path(tmp) / "001"
@@ -199,6 +215,14 @@ class StandardReconTests(unittest.TestCase):
         self.assertIn('-openmp "$RECON_THREADS"', text)
         self.assertNotIn('recon_args+=(-parallel', text)
 
+    def test_recon_repairs_stale_fsaverage_symlink(self):
+        text = (ROOT / "scripts" / "jobs" / "recon_all_demo.sh").read_text(encoding="utf-8")
+        self.assertIn('fsaverage_link="${SUBJECTS_DIR}/fsaverage"', text)
+        self.assertIn('[ -L "$fsaverage_link" ]', text)
+        self.assertIn('rm -f "$fsaverage_link"', text)
+        self.assertIn('ln -s "$fsaverage_target" "$fsaverage_link"', text)
+        self.assertIn('recon-all.error', text)
+
 
 class T2PialPolicyTests(unittest.TestCase):
     @classmethod
@@ -220,6 +244,12 @@ class T2PialPolicyTests(unittest.TestCase):
             "SpacingBetweenSlices": 6.5,
         }
         self.assertFalse(self.mod.is_t2_pial_candidate(metadata))
+
+    def test_policy_source_is_compatible_with_container_python36(self):
+        source = (ROOT / "scripts" / "steps" / "43_t2_pial_policy_demo.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("from __future__ import annotations", source)
 
 
 class ActiveWorkflowTests(unittest.TestCase):
@@ -267,6 +297,10 @@ class DemoEntrypointTests(unittest.TestCase):
         self.assertIn("COPY", text)
         self.assertIn("ENTRYPOINT", text)
         self.assertNotIn("FSLDIR", text)
+
+    def test_docker_context_excludes_local_image_cache(self):
+        patterns = (ROOT / ".dockerignore").read_text(encoding="utf-8").splitlines()
+        self.assertIn("docker/.cache/", patterns)
 
     def test_slim_doctor_does_not_require_fsl(self):
 
