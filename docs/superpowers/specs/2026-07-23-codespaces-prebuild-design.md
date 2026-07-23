@@ -65,3 +65,12 @@ If GitHub cannot create or retain the prebuild because of account quota or the
 32 GB storage ceiling, the supported fallback is the existing local Docker
 workflow. Docker-outside-of-Docker is not the primary design because it adds a
 second runtime layer and still requires pulling the large image after startup.
+
+## Execution Note
+
+The no-MCR candidate was built and validated locally at 10.77 GB, but its new
+11.38 GB registry layer could not be published over the current 0.17 MB/s
+uplink. The first real Codespaces validation therefore uses the already
+published `caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23` image with
+Prebuild. The no-MCR Dockerfile remains the next release candidate and is not
+presented as a published image.

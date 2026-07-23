@@ -30,14 +30,11 @@ when GitHub offers that machine. The project reliability test uses the available
 less memory margin, so do not run subjects concurrently on that size.
 
 Click `Create codespace`. The `demo` branch uses a Codespaces Prebuild based on
-`caibility1/smri_pipeline_demo:cloud-nomcr-v1-2026-07-23`. When the prebuild is
+`caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23`. When the prebuild is
 ready, GitHub starts the prepared Linux runtime instead of making every student
 download and unpack FreeSurfer during creation. The student's local disk does
 not store the image.
 
-The image contains FreeSurfer 8.1, dcm2niix, Python, and the pipeline code. It
-does not contain MATLAB Runtime, which is not used by this standard
-`recon-all` teaching workflow.
 
 If GitHub opens a recovery container or reports that the image could not be
 pulled, delete that Codespace and wait for the maintainer to confirm that the

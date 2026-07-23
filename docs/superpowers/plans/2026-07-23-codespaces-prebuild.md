@@ -95,3 +95,11 @@
 - [ ] Run `./bin/smri_reconstruction.sh "$PWD/cloud_data/MRI_CLASS" --submit --skip-dicom --subject DEMO001 --recon-jobs 1 --recon-threads 4`.
 - [ ] Wait for completion and verify `surf/lh.pial`, `surf/rh.pial`, `mri/brainmask.mgz`, and `mri/aseg.mgz`.
 - [ ] Run `./bin/smri_3d_print.sh "$PWD/cloud_data/MRI_CLASS" --subject DEMO001` and verify all three STL files are nonempty.
+
+## Execution Note
+
+Local no-MCR build and smoke tests passed at 10.77 GB. Publication is deferred
+because the new 11.38 GB layer would take roughly 18 hours at the measured
+uplink. Tasks 4 and 5 use the existing published `slim-v2.2-2026-07-23` image
+for the first Prebuild reliability test; this does not change reconstruction
+logic.

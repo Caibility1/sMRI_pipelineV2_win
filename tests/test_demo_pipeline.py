@@ -370,13 +370,13 @@ class DemoEntrypointTests(unittest.TestCase):
         self.assertIn("--skip-dicom", text)
 
 class CodespacesEntrypointTests(unittest.TestCase):
-    def test_codespaces_uses_nomcr_prebuild_image_without_nested_docker(self):
+    def test_codespaces_uses_published_prebuild_image_without_nested_docker(self):
         config = json.loads(
             (ROOT / ".devcontainer" / "devcontainer.json").read_text(encoding="utf-8")
         )
         self.assertEqual(
             config["image"],
-            "caibility1/smri_pipeline_demo:cloud-nomcr-v1-2026-07-23",
+            "caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23",
         )
         self.assertTrue(config["overrideCommand"])
         self.assertNotIn("hostRequirements", config)

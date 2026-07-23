@@ -1,6 +1,6 @@
 {
   "name": "sMRI teaching demo",
-  "image": "caibility1/smri_pipeline_demo:cloud-nomcr-v1-2026-07-23",
+  "image": "caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23",
   "overrideCommand": true,
   "remoteEnv": {
     "FS_LICENSE": "${containerWorkspaceFolder}/.secrets/license.txt",
