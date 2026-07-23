@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Convert teaching DICOM folders and conservatively select structural MRI series."""
 
-from __future__ import annotations
 
 import argparse
 import csv

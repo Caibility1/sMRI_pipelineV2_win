@@ -19,12 +19,15 @@ DICOM -> dcm2niix -> 全部 NIfTI 候选 -> 人工选择 T1/可选 T2
 ```powershell
 git clone --branch demo https://github.com/Caibility1/sMRI_pipelineV2_win.git D:\sMRI_pipeline_demo
 cd D:\sMRI_pipeline_demo
-docker pull caibility1/smri_pipeline_demo:slim-v2.1-2026-07-22
+docker pull caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23
 $env:SMRI_FS_LICENSE = "D:\smri_install\license.txt"
 .\docker\doctor_demo.ps1 -LicensePath $env:SMRI_FS_LICENSE
 ```
 
 `setup_demo.ps1` 仅是可选助手；正常运行不依赖它。完全不克隆 Git 也可直接使用 `docker run`，详见[从零部署教程](docs/teaching_demo_tutorial.md)。教学组织见[教学日运行清单](docs/teaching_day_runbook.md)。
+
+学生课堂操作见[学生操作手册](docs/student_quickstart.md)。课堂当天不应依赖 GitHub、Docker Hub 或 VPN。
+教师可运行 `docker\export_demo_offline_bundle.ps1` 导出镜像 TAR、代码 ZIP、license 和 SHA256 校验文件，学生使用 `docker load` 离线导入。
 
 ## Data
 
@@ -77,7 +80,7 @@ $env:SMRI_FS_LICENSE = "D:\smri_install\license.txt"
 .\docker\build_demo_image.ps1
 .\docker\doctor_demo.ps1 -Image smri_pipeline_demo:slim-test -LicensePath D:\smri_install\license.txt
 docker login
-.\docker\publish_demo_image.ps1 -Release slim-v2.1-2026-07-22
+.\docker\publish_demo_image.ps1 -Release slim-v2.2-2026-07-23
 ```
 
 代码变化后需重新 build/push；仅 Git push 不会改变 Docker Hub 镜像。学生随后重新 `docker pull` 指定版本即可。

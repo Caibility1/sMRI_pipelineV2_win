@@ -252,6 +252,14 @@ class T2PialPolicyTests(unittest.TestCase):
         self.assertNotIn("from __future__ import annotations", source)
 
 
+class DicomConversionCompatibilityTests(unittest.TestCase):
+    def test_converter_source_is_compatible_with_container_python36(self):
+        source = (ROOT / "scripts" / "steps" / "40_dicom_to_nifti_demo.py").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotIn("from __future__ import annotations", source)
+
+
 class ActiveWorkflowTests(unittest.TestCase):
     def test_slim_controller_does_not_expose_fsl_registration(self):
         shell = (ROOT / "scripts" / "jobs" / "smri_reconstruction_demo.sh").read_text(encoding="utf-8")
@@ -344,6 +352,22 @@ class DemoEntrypointTests(unittest.TestCase):
         text = (ROOT / "bin" / "smri_3d_print.ps1").read_text(encoding="utf-8")
         self.assertIn(":/data", text)
         self.assertIn('"stl"', text)
+
+
+    def test_offline_bundle_exports_image_code_and_checksums(self):
+        text = (ROOT / "docker" / "export_demo_offline_bundle.ps1").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("docker save", text)
+        self.assertIn("git -C $RepoRoot archive", text)
+        self.assertIn("Get-FileHash -Algorithm SHA256", text)
+
+    def test_student_quickstart_supports_offline_import(self):
+        text = (ROOT / "docs" / "student_quickstart.md").read_text(encoding="utf-8")
+        self.assertIn("docker load", text)
+        self.assertIn("--dcm2niix-only", text)
+        self.assertIn("--select-only", text)
+        self.assertIn("--skip-dicom", text)
 
 if __name__ == "__main__":
     unittest.main()
