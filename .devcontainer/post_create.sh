@@ -8,7 +8,13 @@ chmod +x \
     "${repo_root}/bin/smri_3d_print.sh"
 
 failed=0
-for tool in python3 dcm2niix recon-all mris_convert; do
+echo "=== Codespace resources ==="
+echo "CPU_THREADS=$(nproc)"
+free -h
+df -h "${repo_root}"
+
+echo "=== Runtime tools ==="
+for tool in python3 dcm2niix recon-all mris_convert tcsh; do
     if path=$(command -v "$tool" 2>/dev/null); then
         echo "[OK] ${tool}=${path}"
     else
@@ -25,4 +31,6 @@ fi
 
 echo "Codespace workspace: ${repo_root}"
 echo "Student data folder: ${repo_root}/cloud_data"
+echo "Next command:"
+echo "./bin/smri_reconstruction.sh \"\$PWD/cloud_data/MRI_CLASS\" --submit --dcm2niix-only"
 exit "$failed"

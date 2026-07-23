@@ -24,13 +24,24 @@ Choose `New with options` and confirm:
 - Dev container: `sMRI teaching demo`
 - Machine: choose the largest machine that GitHub offers to your account
 
-For a complete FreeSurfer reconstruction, 8 cores and 32 GB RAM are recommended.
-A smaller machine can be created for the environment check and DICOM conversion,
-but it is a smoke test only: full `recon-all` may run very slowly or be killed for
-lack of memory.
+For a complete FreeSurfer reconstruction, 8 cores and 32 GB RAM are recommended
+when GitHub offers that machine. The project reliability test uses the available
+4-core, 16 GB machine with one subject and four threads; it is slower and has
+less memory margin, so do not run subjects concurrently on that size.
 
-Click `Create codespace`. GitHub pulls the Demo image in the cloud. The
-student's local disk does not store the image.
+Click `Create codespace`. The `demo` branch uses a Codespaces Prebuild based on
+`caibility1/smri_pipeline_demo:cloud-nomcr-v1-2026-07-23`. When the prebuild is
+ready, GitHub starts the prepared Linux runtime instead of making every student
+download and unpack FreeSurfer during creation. The student's local disk does
+not store the image.
+
+The image contains FreeSurfer 8.1, dcm2niix, Python, and the pipeline code. It
+does not contain MATLAB Runtime, which is not used by this standard
+`recon-all` teaching workflow.
+
+If GitHub opens a recovery container or reports that the image could not be
+pulled, delete that Codespace and wait for the maintainer to confirm that the
+`demo` prebuild is green before trying again.
 
 ## 2. Upload The License And Data
 
@@ -97,12 +108,13 @@ Run one subject at a time:
 
 ```bash
 ./bin/smri_reconstruction.sh "$PWD/cloud_data/MRI_CLASS" --submit --skip-dicom \
-  --subject 001 --recon-jobs 1 --recon-threads 8
+  --subject 001 --recon-jobs 1 --recon-threads 4
 ```
 
 The command is synchronous. Keep the Codespace running until the terminal says
 `reconstruction pipeline complete`. Repeating the command resumes from
-existing FreeSurfer checkpoints.
+existing FreeSurfer checkpoints. On an 8-core, 32 GB Codespace, change only
+`--recon-threads 4` to `--recon-threads 8`.
 
 ## 6. Export STL
 

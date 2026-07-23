@@ -370,16 +370,38 @@ class DemoEntrypointTests(unittest.TestCase):
         self.assertIn("--skip-dicom", text)
 
 class CodespacesEntrypointTests(unittest.TestCase):
-    def test_codespaces_uses_published_image_without_blocking_machine_filter(self):
+    def test_codespaces_uses_nomcr_prebuild_image_without_nested_docker(self):
         config = json.loads(
             (ROOT / ".devcontainer" / "devcontainer.json").read_text(encoding="utf-8")
         )
         self.assertEqual(
             config["image"],
-            "caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23",
+            "caibility1/smri_pipeline_demo:cloud-nomcr-v1-2026-07-23",
         )
         self.assertTrue(config["overrideCommand"])
         self.assertNotIn("hostRequirements", config)
+        self.assertNotIn("features", config)
+
+    def test_cloud_image_flattens_freesurfer_without_matlab_runtime(self):
+        text = (ROOT / "docker" / "Dockerfile.smri-demo-cloud").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("FROM freesurfer/freesurfer:8.1.0 AS freesurfer-source", text)
+        self.assertIn("RUN --mount=from=freesurfer-source", text)
+        self.assertIn("--exclude='./MCRv97'", text)
+        self.assertIn("FROM rockylinux:8", text)
+        self.assertNotIn("fs_install_mcr", text)
+        for tool in ("python3", "dcm2niix", "recon-all", "mris_convert", "tcsh"):
+            self.assertIn(f"command -v {tool}", text)
+
+    def test_post_create_reports_resources_and_next_linux_command(self):
+        text = (ROOT / ".devcontainer" / "post_create.sh").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("nproc", text)
+        self.assertIn("free -h", text)
+        self.assertIn("df -h", text)
+        self.assertIn("smri_reconstruction.sh", text)
 
     def test_linux_launchers_delegate_to_existing_demo_jobs(self):
         reconstruct = (ROOT / "bin" / "smri_reconstruction.sh").read_text(
@@ -407,6 +429,6 @@ class CodespacesEntrypointTests(unittest.TestCase):
         self.assertIn("de-identified", text)
         self.assertIn("8 cores", text)
         self.assertIn("32 GB", text)
-        self.assertIn("smoke test only", text)
+        self.assertIn("4-core, 16 GB", text)
 if __name__ == "__main__":
     unittest.main()

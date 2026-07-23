@@ -1,0 +1,76 @@
+# syntax=docker/dockerfile:1.7
+FROM freesurfer/freesurfer:8.1.0 AS freesurfer-source
+FROM caibility1/smri_pipeline_win:full-2026-07-15 AS dcm2niix-source
+FROM rockylinux:8
+
+USER root
+RUN dnf -y update \
+    && dnf -y install \
+        findutils \
+        libgomp \
+        libXext \
+        libXt \
+        ncurses-compat-libs \
+        procps-ng \
+        python3 \
+        tar \
+        unzip \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
+
+# Copy FreeSurfer into a new layer so the official image's MCR layer is not
+# inherited. Standard recon-all and mris_convert do not require MCRv97.
+RUN --mount=from=freesurfer-source,source=/usr/local/freesurfer/8.1.0-1,target=/mnt/freesurfer,ro \
+    mkdir -p /usr/local/freesurfer/8.1.0-1 \
+    && tar -C /mnt/freesurfer --exclude='./MCRv97' -cf - . \
+       | tar -C /usr/local/freesurfer/8.1.0-1 -xf - \
+    && test ! -e /usr/local/freesurfer/8.1.0-1/MCRv97
+
+# These interpreters are RPM dependencies of FreeSurfer. They are outside the
+# copied FreeSurfer tree but are required by recon-all and its helper scripts.
+RUN dnf -y install bc perl-interpreter tcl tcsh \
+    && dnf clean all \
+    && rm -rf /var/cache/dnf
+
+COPY --from=dcm2niix-source /opt/fsl/bin/dcm2niix /usr/local/bin/dcm2niix
+COPY . /opt/smri/pipeline_demo
+
+ENV FREESURFER_HOME=/usr/local/freesurfer/8.1.0-1 \
+    SUBJECTS_DIR=/usr/local/freesurfer/8.1.0-1/subjects \
+    FIX_VERTEX_AREA= \
+    FMRI_ANALYSIS_DIR=/usr/local/freesurfer/8.1.0-1/fsfast \
+    FREESURFER=/usr/local/freesurfer/8.1.0-1 \
+    FS_OVERRIDE=0 \
+    FSF_OUTPUT_FORMAT=nii.gz \
+    FSFAST_HOME=/usr/local/freesurfer/8.1.0-1/fsfast \
+    FUNCTIONALS_DIR=/usr/local/freesurfer/8.1.0-1/sessions \
+    LOCAL_DIR=/usr/local/freesurfer/8.1.0-1/local \
+    MINC_BIN_DIR=/usr/local/freesurfer/8.1.0-1/mni/bin \
+    MINC_LIB_DIR=/usr/local/freesurfer/8.1.0-1/mni/lib \
+    MNI_DATAPATH=/usr/local/freesurfer/8.1.0-1/mni/data \
+    MNI_DIR=/usr/local/freesurfer/8.1.0-1/mni \
+    MNI_PERL5LIB=/usr/local/freesurfer/8.1.0-1/mni/share/perl5 \
+    OS=Linux \
+    PERL5LIB=/usr/local/freesurfer/8.1.0-1/mni/share/perl5 \
+    PATH=/usr/local/freesurfer/8.1.0-1/bin:/usr/local/freesurfer/8.1.0-1/fsfast/bin:/usr/local/freesurfer/8.1.0-1/tktools:/usr/local/freesurfer/8.1.0-1/mni/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin \
+    PIPELINE_DIR=/opt/smri/pipeline_demo \
+    PYTHON=python3
+
+RUN chmod +x \
+        /opt/smri/pipeline_demo/docker/demo_entrypoint.sh \
+        /opt/smri/pipeline_demo/bin/*.sh \
+        /opt/smri/pipeline_demo/scripts/jobs/*.sh \
+        /opt/smri/pipeline_demo/scripts/steps/*.py \
+    && command -v python3 \
+    && command -v dcm2niix \
+    && command -v recon-all \
+    && command -v mris_convert \
+    && command -v tcsh
+
+WORKDIR /workspaces/sMRI_pipelineV2_win
+ENTRYPOINT ["/opt/smri/pipeline_demo/docker/demo_entrypoint.sh"]
+CMD ["help"]
+
+LABEL org.opencontainers.image.source="https://github.com/Caibility1/sMRI_pipelineV2_win/tree/demo" \
+      org.opencontainers.image.title="sMRI teaching Codespaces runtime without MATLAB Runtime" \
+      org.opencontainers.image.version="cloud-nomcr-v1-2026-07-23"
