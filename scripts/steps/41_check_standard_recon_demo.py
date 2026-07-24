@@ -19,21 +19,39 @@ def nonempty(path):
     return path.is_file() and path.stat().st_size > 0
 
 
+def required_outputs_complete(subject_dir):
+    return all(nonempty(subject_dir / relative) for relative in REQUIRED_OUTPUTS)
+
+
+def read_log_tail(subject_dir):
+    log_path = subject_dir / "scripts" / "recon-all.log"
+    if not log_path.is_file():
+        return ""
+    return log_path.read_text(encoding="utf-8", errors="replace")[-200000:]
+
+
+def recoverable_tail_warning(subject_dir):
+    error_marker = subject_dir / "scripts" / "recon-all.error"
+    if not error_marker.is_file() or not required_outputs_complete(subject_dir):
+        return False
+    text = read_log_tail(subject_dir)
+    return (
+        "mris_volmask" in text
+        and "Invalid FreeSurfer license key" in text
+        and "exited with ERRORS" in text
+    )
+
+
 def recon_done(subject_dir):
     error_marker = subject_dir / "scripts" / "recon-all.error"
-    return not error_marker.is_file() and all(
-        nonempty(subject_dir / relative) for relative in REQUIRED_OUTPUTS
-    )
+    return not error_marker.is_file() and required_outputs_complete(subject_dir)
 
 
 def failure_message(subject_dir):
     error_marker = subject_dir / "scripts" / "recon-all.error"
     if error_marker.is_file():
         return "recon-all.error exists"
-    log_path = subject_dir / "scripts" / "recon-all.log"
-    if not log_path.is_file():
-        return ""
-    text = log_path.read_text(encoding="utf-8", errors="replace")[-200000:]
+    text = read_log_tail(subject_dir)
     for marker in ("recon-all -s", "exited with ERRORS", "ERROR:"):
         if marker in text and marker != "recon-all -s":
             return marker
@@ -50,6 +68,9 @@ def collect(recon_root, input_root):
         if recon_done(subject_dir):
             status = "success"
             error = ""
+        elif recoverable_tail_warning(subject_dir):
+            status = "warning"
+            error = "mris_volmask license check failed after teaching outputs completed"
         elif failure:
             status = "failed"
             error = failure
@@ -96,9 +117,13 @@ def main(argv=None):
     summary = batch_dir / "manifests" / "30_recon_summary.csv"
     write_csv(summary, rows)
     success = sum(row["status"] == "success" for row in rows)
+    warning = sum(row["status"] == "warning" for row in rows)
     failed = sum(row["status"] == "failed" for row in rows)
     partial = sum(row["status"] == "partial" for row in rows)
-    print(f"Recon check complete: {success} complete, {failed} failed, {partial} partial")
+    print(
+        f"Recon check complete: {success} complete, {warning} warning, "
+        f"{failed} failed, {partial} partial"
+    )
     print(f"Summary: {summary}")
     return 1 if failed else 0
 

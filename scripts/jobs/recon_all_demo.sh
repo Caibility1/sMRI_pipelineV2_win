@@ -70,6 +70,25 @@ ensure_fsaverage() {
 
 ensure_fsaverage || exit $?
 
+teaching_outputs_complete() {
+    local subject=$1
+    [ -s "${SUBJECTS_DIR}/${subject}/scripts/recon-all.done" ] && \
+    [ -s "${SUBJECTS_DIR}/${subject}/surf/lh.pial" ] && \
+    [ -s "${SUBJECTS_DIR}/${subject}/surf/rh.pial" ] && \
+    [ -s "${SUBJECTS_DIR}/${subject}/mri/brainmask.mgz" ] && \
+    [ -s "${SUBJECTS_DIR}/${subject}/mri/aseg.mgz" ]
+}
+
+recoverable_tail_warning() {
+    local subject=$1
+    local error_marker="${SUBJECTS_DIR}/${subject}/scripts/recon-all.error"
+    local recon_log="${SUBJECTS_DIR}/${subject}/scripts/recon-all.log"
+    [ -f "$error_marker" ] && \
+    teaching_outputs_complete "$subject" && \
+    grep -q "CMD mris_volmask" "$error_marker" && \
+    grep -q "Invalid FreeSurfer license key" "$recon_log"
+}
+
 run_subject() {
     local input_dir=$1
     local subject
@@ -92,14 +111,15 @@ run_subject() {
         echo "[$subject] FAILED: missing $t1" | tee -a "$log" >&2
         return 1
     fi
-    if [ -s "${SUBJECTS_DIR}/${subject}/scripts/recon-all.done" ] && \
-       [ ! -f "${SUBJECTS_DIR}/${subject}/scripts/recon-all.error" ] && \
-       [ -s "${SUBJECTS_DIR}/${subject}/surf/lh.pial" ] && \
-       [ -s "${SUBJECTS_DIR}/${subject}/surf/rh.pial" ] && \
-       [ -s "${SUBJECTS_DIR}/${subject}/mri/brainmask.mgz" ] && \
-       [ -s "${SUBJECTS_DIR}/${subject}/mri/aseg.mgz" ]; then
-        echo "[$subject] recon-all complete (checkpoint); skipping" | tee -a "$log"
-        return 0
+    if teaching_outputs_complete "$subject"; then
+        if [ ! -f "${SUBJECTS_DIR}/${subject}/scripts/recon-all.error" ]; then
+            echo "[$subject] recon-all complete (checkpoint); skipping" | tee -a "$log"
+            return 0
+        fi
+        if recoverable_tail_warning "$subject"; then
+            echo "[$subject] WARNING: teaching outputs complete; preserving mris_volmask license tail error" | tee -a "$log"
+            return 0
+        fi
     fi
 
     echo "[$subject] recon-all started" | tee -a "$log"
@@ -128,13 +148,12 @@ run_subject() {
     recon-all "${recon_args[@]}" 2>&1 | tee -a "$log"
     rc=${PIPESTATUS[0]}
     if [ "$rc" -eq 0 ] && \
-       [ -s "${SUBJECTS_DIR}/${subject}/scripts/recon-all.done" ] && \
        [ ! -f "${SUBJECTS_DIR}/${subject}/scripts/recon-all.error" ] && \
-       [ -s "${SUBJECTS_DIR}/${subject}/surf/lh.pial" ] && \
-       [ -s "${SUBJECTS_DIR}/${subject}/surf/rh.pial" ] && \
-       [ -s "${SUBJECTS_DIR}/${subject}/mri/brainmask.mgz" ] && \
-       [ -s "${SUBJECTS_DIR}/${subject}/mri/aseg.mgz" ]; then
+       teaching_outputs_complete "$subject"; then
         echo "[$subject] recon-all complete" | tee -a "$log"
+    elif recoverable_tail_warning "$subject"; then
+        echo "[$subject] WARNING: teaching outputs complete; preserving mris_volmask license tail error" | tee -a "$log"
+        rc=0
     else
         [ "$rc" -ne 0 ] || rc=1
         echo "[$subject] FAILED: incomplete recon outputs (rc=$rc)" | tee -a "$log" >&2

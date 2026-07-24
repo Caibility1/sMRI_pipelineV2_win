@@ -20,8 +20,8 @@
 - WSL2 系统能力和 Docker Desktop WSL2 backend。
 - 建议 8 核以上 CPU、32 GB 以上内存；16 GB 只能低并发尝试。
 - 本流程主要吃 CPU 和内存，不要求 NVIDIA GPU。
-- 瘦身镜像实际内容约 14–15 GB；考虑下载缓存和 Docker 虚拟磁盘，建议为 Docker 预留 40–60 GB。
-- FreeSurfer 输出和原始数据另计。按约 5–15 GB/受试者预留更稳妥；10 人课程建议数据盘再留 100 GB 以上。
+- 当前公开瘦身镜像在 Docker Desktop 中展开约 41 GB；考虑下载缓存和 WSL 虚拟磁盘，每台机器至少留出 80 GB，建议 100 GB。
+- FreeSurfer 当前实测输出约 0.4–0.6 GB/受试者，但原始 DICOM、候选 NIfTI、缓存和 STL 另计；整批运行应额外预留数据空间。
 
 Docker Desktop 可能显示大于实际下载量的“虚拟大小”，不同标签共享相同层时不会重复占用全部空间。
 
@@ -52,7 +52,7 @@ docker version
 ```powershell
 git clone --branch demo https://github.com/Caibility1/sMRI_pipelineV2_win.git D:\sMRI_pipeline_demo
 cd D:\sMRI_pipeline_demo
-docker pull caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23
+docker pull caibility1/smri_pipeline_demo:slim-v2.3-2026-07-24
 ```
 
 准备 FreeSurfer `license.txt`，例如：
@@ -79,7 +79,7 @@ docker run --rm `
   --mount type=bind,source=D:\MRI_CLASS,target=/data `
   --mount type=bind,source=D:\smri_install\license.txt,target=/licenses/freesurfer/license.txt,readonly `
   --env FS_LICENSE=/licenses/freesurfer/license.txt `
-  caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23 doctor
+  caibility1/smri_pipeline_demo:slim-v2.3-2026-07-24 doctor
 ```
 
 后续把最后的 `doctor` 换成 `reconstruct /data ...` 或 `stl /data ...` 即可。课堂推荐 Git 入口，因为命令更短、文档与版本更容易统一。

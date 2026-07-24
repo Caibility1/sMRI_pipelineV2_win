@@ -1,5 +1,5 @@
 param(
-    [string]$Image = "caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23",
+    [string]$Image = "caibility1/smri_pipeline_demo:slim-v2.3-2026-07-24",
     [Parameter(Mandatory = $true)]
     [string]$FsLicenseSource,
     [int]$PullAttempts = 3

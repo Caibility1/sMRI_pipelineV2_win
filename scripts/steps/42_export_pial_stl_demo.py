@@ -19,6 +19,17 @@ def stl_done(output_dir):
     return all(nonempty(output_dir / name) for name in STL_NAMES)
 
 
+def discover_subject_dirs(recon_root, input_root, requested_subjects):
+    if requested_subjects:
+        return [recon_root / subject for subject in requested_subjects]
+    return [
+        recon_root / path.name
+        for path in sorted(
+            (item for item in input_root.iterdir() if item.is_dir()), key=lambda p: p.name
+        )
+    ]
+
+
 def build_commands(subject_dir, output_dir, executable="mris_convert"):
     surf = subject_dir / "surf"
     return [
@@ -79,14 +90,15 @@ def main(argv=None):
     batch_dir = Path(args.batch_dir).expanduser().resolve()
     recon_root = batch_dir / "3_recon"
     stl_root = batch_dir / "4_stl"
+    input_root = batch_dir / "1_T2toT1" / "data"
     if not recon_root.is_dir():
         print(f"Missing recon directory: {recon_root}", file=sys.stderr)
         return 2
+    if not args.subject and not input_root.is_dir():
+        print(f"Missing input directory: {input_root}", file=sys.stderr)
+        return 2
 
-    if args.subject:
-        subject_dirs = [recon_root / subject for subject in args.subject]
-    else:
-        subject_dirs = sorted((path for path in recon_root.iterdir() if path.is_dir()), key=lambda p: p.name)
+    subject_dirs = discover_subject_dirs(recon_root, input_root, args.subject)
     rows = []
     failures = 0
     for subject_dir in subject_dirs:

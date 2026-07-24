@@ -19,7 +19,7 @@ DICOM -> dcm2niix -> 全部 NIfTI 候选 -> 人工选择 T1/可选 T2
 ```powershell
 git clone --branch demo https://github.com/Caibility1/sMRI_pipelineV2_win.git D:\sMRI_pipeline_demo
 cd D:\sMRI_pipeline_demo
-docker pull caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23
+docker pull caibility1/smri_pipeline_demo:slim-v2.3-2026-07-24
 $env:SMRI_FS_LICENSE = "D:\smri_install\license.txt"
 .\docker\doctor_demo.ps1 -LicensePath $env:SMRI_FS_LICENSE
 ```
@@ -28,6 +28,7 @@ $env:SMRI_FS_LICENSE = "D:\smri_install\license.txt"
 
 学生课堂操作见[学生操作手册](docs/student_quickstart.md)。课堂当天不应依赖 GitHub、Docker Hub 或 VPN。
 教师可运行 `docker\export_demo_offline_bundle.ps1` 导出镜像 TAR、代码 ZIP、license 和 SHA256 校验文件，学生使用 `docker load` 离线导入。
+机房管理员与教师应先按[机房部署与课堂运行教程](docs/machine_room_deployment_tutorial.md)在一台电脑完成 WSL2、Docker Desktop、离线镜像和一例重建验收。
 
 ## Data
 
@@ -80,11 +81,13 @@ $env:SMRI_FS_LICENSE = "D:\smri_install\license.txt"
 .\docker\build_demo_image.ps1
 .\docker\doctor_demo.ps1 -Image smri_pipeline_demo:slim-test -LicensePath D:\smri_install\license.txt
 docker login
-.\docker\publish_demo_image.ps1 -Release slim-v2.2-2026-07-23
+.\docker\publish_demo_image.ps1 -Release slim-v2.3-2026-07-24
 ```
 
 代码变化后需重新 build/push；仅 Git push 不会改变 Docker Hub 镜像。学生随后重新 `docker pull` 指定版本即可。
 
-## Browser-only Linux
+## Cloud experiment
 
-Students who cannot install Docker Desktop can follow the [GitHub Codespaces tutorial](docs/codespaces_student_tutorial.md). Codespaces starts the same Docker image in the cloud; only de-identified DICOM may be uploaded.
+GitHub Codespaces 方案已停止作为课堂部署路径。实测可用的 16 GB Codespaces
+实例在 FreeSurfer `mri_synthseg` 阶段发生内存不足，不能替代 32 GB 以上的本地
+WSL2 + Docker Desktop。相关文档仅保留为实验记录，不应发给学生作为运行教程。

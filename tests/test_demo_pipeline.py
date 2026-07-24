@@ -180,6 +180,28 @@ class StandardReconTests(unittest.TestCase):
                 path.write_bytes(b"error" if relative.endswith(".error") else b"ok")
             self.assertFalse(self.mod.recon_done(subject))
 
+    def test_mris_volmask_license_tail_error_is_a_recoverable_warning(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            subject = Path(tmp) / "001"
+            for relative in [
+                "scripts/recon-all.done",
+                "surf/lh.pial",
+                "surf/rh.pial",
+                "mri/brainmask.mgz",
+                "mri/aseg.mgz",
+                "scripts/recon-all.error",
+            ]:
+                path = subject / relative
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_bytes(b"ok")
+            log = subject / "scripts" / "recon-all.log"
+            log.write_text(
+                "mris_volmask --parallel 001\n"
+                "ERROR: Invalid FreeSurfer license key found in license file\n"
+                "recon-all -s 001 exited with ERRORS\n",
+                encoding="utf-8",
+            )
+            self.assertTrue(self.mod.recoverable_tail_warning(subject))
     def test_partial_surface_is_not_complete(self):
         with tempfile.TemporaryDirectory() as tmp:
             subject = Path(tmp) / "001"
@@ -214,6 +236,12 @@ class StandardReconTests(unittest.TestCase):
         text = (ROOT / "scripts" / "jobs" / "recon_all_demo.sh").read_text(encoding="utf-8")
         self.assertIn('-openmp "$RECON_THREADS"', text)
         self.assertNotIn('recon_args+=(-parallel', text)
+
+    def test_recon_preserves_recoverable_mris_volmask_warning(self):
+        text = (ROOT / "scripts" / "jobs" / "recon_all_demo.sh").read_text(encoding="utf-8")
+        self.assertIn("recoverable_tail_warning", text)
+        self.assertIn("teaching outputs complete", text)
+        self.assertIn("CMD mris_volmask", text)
 
     def test_recon_repairs_stale_fsaverage_symlink(self):
         text = (ROOT / "scripts" / "jobs" / "recon_all_demo.sh").read_text(encoding="utf-8")
@@ -290,6 +318,17 @@ class StlExportTests(unittest.TestCase):
             (output / "brain.pial.stl").unlink()
             self.assertFalse(self.mod.stl_done(output))
 
+    def test_default_subject_discovery_uses_input_data_not_fsaverage(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            recon_root = root / "3_recon"
+            input_root = root / "1_T2toT1" / "data"
+            for name in ("001", "003"):
+                (input_root / name).mkdir(parents=True)
+                (recon_root / name).mkdir(parents=True)
+            (recon_root / "fsaverage").mkdir(parents=True)
+            discovered = self.mod.discover_subject_dirs(recon_root, input_root, [])
+            self.assertEqual([path.name for path in discovered], ["001", "003"])
     def test_stl_job_tolerates_nonzero_freesurfer_setup_tail_command(self):
         text = (ROOT / "scripts" / "jobs" / "export_stl_demo.sh").read_text(encoding="utf-8")
         self.assertIn('source "${FREESURFER_HOME}/SetUpFreeSurfer.sh" || true', text)

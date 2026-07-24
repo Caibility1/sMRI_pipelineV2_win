@@ -8,7 +8,7 @@
 2. WSL2 系统能力已启用。
 3. Docker Desktop 已安装并成功启动。
 4. 代码文件夹、Demo 镜像和 `license.txt` 已准备好。
-5. 数据盘至少保留 30 GB/人；内存不足时只运行一个重建任务。
+5. Docker 与数据盘合计至少保留 80 GB，建议 100 GB；一次只运行一个重建任务。
 
 主机不需要安装 Conda、Ubuntu、FSL、ANTs 或 FreeSurfer。
 
@@ -17,7 +17,7 @@
 ```powershell
 git clone --branch demo https://github.com/Caibility1/sMRI_pipelineV2_win.git D:\sMRI_pipeline_demo
 cd D:\sMRI_pipeline_demo
-docker pull caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23
+docker pull caibility1/smri_pipeline_demo:slim-v2.3-2026-07-24
 ```
 
 ## 3. 离线获取
@@ -25,7 +25,7 @@ docker pull caibility1/smri_pipeline_demo:slim-v2.2-2026-07-23
 从教师提供的离线包解压代码，然后导入镜像：
 
 ```powershell
-docker load -i E:\smri_offline\caibility1_smri_pipeline_demo_slim-v2.2-2026-07-23.tar
+docker load -i E:\smri_offline\caibility1_smri_pipeline_demo_slim-v2.3-2026-07-24.tar
 cd D:\sMRI_pipeline_demo
 ```
 
